@@ -20,7 +20,8 @@ async function syncRoadmapCompletion({
 		),
 	});
 
-	const isCompleted = nodes.length > 0 && nodes.every((node) => node.isCompleted);
+	const isCompleted =
+		nodes.length > 0 && nodes.every((node) => node.isCompleted);
 
 	await ctx.db
 		.update(learningRoadmaps)
@@ -82,7 +83,7 @@ export const validationRouter = createTRPCRouter({
 				: [{ role: "user", content: input.message }];
 
 			const systemInstruction = `
-				You are the Socratic Validator for Gradia. Evaluate understanding of "${node.title}".
+				You are the Socratic Validator for Synara. Evaluate understanding of "${node.title}".
 				Success Criteria: ${node.successCriteria.join("; ")}. 
 
 				Output ONLY raw JSON with this exact schema:
