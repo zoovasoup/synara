@@ -21,17 +21,17 @@ The audit was performed against the implementation state on `master` immediately
 | Email/password authentication | Implemented | Better Auth with Drizzle/PostgreSQL | Core learning procedures are protected by authenticated session middleware. |
 | Authenticated learner dashboard | Implemented | Saved roadmaps can be listed and reopened | Current product is learner-only. |
 | Five-answer course onboarding | Implemented | Topic, level, goal, weekly hours, and learning style are grouped into three visual stages | Responsive bottom drawer on mobile and side drawer on larger screens. |
-| Initial AI roadmap generation | Implemented | Gemini generates up to 5 nodes with typed metadata | Structured output is validated before persistence. |
+| Initial AI roadmap generation | Implemented | The selected AI provider generates up to 5 nodes with typed metadata | Gemini remains the production default; deterministic mock mode supports local development. |
 | Draft fallback on generation failure | Implemented | Guided creation can save a roadmap with zero nodes and `generationStatus: draft` | Recovery UI beyond the draft state is still limited. |
 | Persistent roadmaps and nodes | Implemented | PostgreSQL + Drizzle | Ownership is tied to authenticated user IDs. |
 | Node progress tracking | Implemented | Completion state and completion timestamp stored per node | Roadmap is marked completed when all nodes are complete. |
 | Linear prerequisite locking | Implemented | Access is derived from ordered `orderIndex` + `isCompleted` state and enforced by node-specific learner procedures | Completed nodes are reviewable, the first incomplete node is current, and later incomplete nodes are locked; this is not a general dependency graph. |
 | Lazy lesson generation | Implemented | Lesson generated when selected/needed and stored in node JSON | Avoids repeated AI calls after persistence. |
-| Lesson summary/concepts/steps/exercises/resources | Implemented | Gemini generates the lesson body; the server deterministically attaches verified, active database source snapshots before persisting lesson JSON | Zero matched sources is valid and renders a calm empty state. |
+| Lesson summary/concepts/steps/exercises/resources | Implemented | The selected AI provider generates the lesson body; the server deterministically attaches verified, active database source snapshots before persisting lesson JSON | Mock and Gemini lesson contracts exclude external resources; zero matches is valid. |
 | Contextual AI tutor | Implemented | Tutor receives goal, node, success criteria, lesson context | Tutor explicitly does not grade or mark progress. |
 | Persistent tutor history | Implemented | One tutor session per learner + node | Conversation survives revisits. |
 | Socratic validation chat | Implemented | Persistent validation session per node | Separate from tutor role. |
-| Competency scoring | Implemented | Gemini returns score 0-100 | Score is AI-produced and prompt-governed. |
+| Competency scoring | Implemented | The selected AI provider returns score 0-100 | Mock mode exposes server-only `[mock-pass]`/`[mock-fail]` developer markers; Stagnation Score remains deterministic server logic. |
 | Automatic completion at score >= 80 | Implemented | Validation mutation marks node complete | This is the preferred validated-completion path. |
 | Stumble accumulation | Implemented | Session stumble count accumulates across validation turns | Retained as historical telemetry; not an authoritative recalibration trigger. |
 | Sentiment signal | Implemented | Gemini returns 0.0-1.0 sentiment score | Retained as historical telemetry; not an authoritative recalibration trigger. |
@@ -47,6 +47,7 @@ The audit was performed against the implementation state on `master` immediately
 | Micro-artifact records | Schema-only | `micro_artifacts` table exists | No submission, review, or UI workflow. |
 | Long-term cognitive adaptation | Not implemented | Historical design describes it | Current recalibration uses recent Socratic failure context instead. |
 | Curated learning-source database | Implemented infrastructure | `learning_sources`, typed repeatable seed, deterministic matcher, lazy lesson integration, legacy normalization, and trusted-link UI are connected | The seed dataset is intentionally empty pending separate manual research and verification; no crawler/admin ingestion exists. |
+| Development AI mock mode | Implemented | `AI_MODE=mock` provides deterministic valid outputs for roadmap, lesson, Tutor, Validator, and recalibration flows | No Gemini request function is invoked; `AI_MODE` defaults to `gemini`. |
 | Supabase/Postgres RLS policies | Not evidenced | Historical design claims RLS | No repository-owned RLS policy/migration was found during audit. |
 | Instructor/admin workflows | Not implemented | No core product role/flow found | Outside current learner MVP. |
 
@@ -149,6 +150,8 @@ A focused Stagnation Score check covers the deterministic signal weights, exclus
 Focused recalibration checks cover eligibility, state transitions, preservation/replacement ordering, derived progression, metadata, logging, duplicate calls, generation/database failure boundaries, and frontend single-flight orchestration. They use deterministic fakes rather than a live PostgreSQL transaction or Gemini integration.
 
 Focused curated-source checks cover verified/active filtering, tag and level ranking, deterministic ordering, result limits, no-match and empty-catalog behavior, database authority over AI resource fields, legacy lesson-body preservation, and replacement-node reuse of the normal lesson path. They are domain-level checks rather than a live PostgreSQL lesson query.
+
+Focused AI mock checks cover all active generation contracts, deterministic Tutor responses, controllable Socratic pass/fail behavior, compatibility with the repeated-failure Stagnation trigger, replacement-path output, conditional Gemini-key validation, and proof that the injected Gemini request function is not called in mock mode.
 
 For meaningful feature changes, at minimum verify:
 

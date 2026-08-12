@@ -14,7 +14,8 @@
 		"test:progression": "bun run tests/node-progression.check.ts",
 		"test:stagnation": "bun run tests/stagnation-score.check.ts",
 		"test:recalibration": "bun run tests/recalibration.check.ts",
-		"test:sources": "bun run tests/learning-source.check.ts"
+		"test:sources": "bun run tests/learning-source.check.ts",
+		"test:ai-mock": "bun run tests/ai-mock.check.ts"
 	},
 	"dependencies": {
 		"@gemastik/auth": "workspace:*",

@@ -35,7 +35,7 @@ When documentation disagrees with executable code, current code and migrations w
 - Better Auth
 - Drizzle ORM
 - PostgreSQL
-- Gemini through `@google/generative-ai`
+- Gemini through `@google/generative-ai`, with a deterministic server-side mock mode for development/testing
 - Zod for runtime validation
 
 ## 4. Repository Map
@@ -219,6 +219,8 @@ Current AI responsibilities:
 4. tutor response generation;
 5. Socratic validation/scoring/sentiment signal extraction.
 
+`packages/api/src/services/ai.service.ts` is the single provider switch. `AI_MODE=gemini` uses the real Gemini implementation; `AI_MODE=mock` uses deterministic, schema-valid responses for all five flows and never invokes the Gemini request function. Mock validation supports the developer-only message markers `[mock-pass]` and `[mock-fail]`; an unmarked mock answer is non-passing. Stagnation scoring remains deterministic server logic outside the AI service.
+
 For structured output:
 
 - demand a small explicit schema in the prompt;
@@ -235,13 +237,13 @@ Required server values:
 
 ```text
 DATABASE_URL
-GEMINI_API_KEY
+AI_MODE
 BETTER_AUTH_SECRET
 BETTER_AUTH_URL
 CORS_ORIGIN
 ```
 
-`NODE_ENV` defaults to development.
+`AI_MODE` defaults to `gemini` to preserve deployed behavior. `GEMINI_API_KEY` is required only when `AI_MODE=gemini`; set `AI_MODE=mock` for local development without provider requests or quota use. `NODE_ENV` defaults to development.
 
 Never commit real credentials or paste secret values into docs, fixtures, prompts, tests, or logs.
 
@@ -257,6 +259,7 @@ bun run db:push
 bun run db:generate
 bun run db:migrate
 bun run db:studio
+bun run test:ai-mock
 ```
 
 Prefer the smallest relevant verification command first, then broaden when the change crosses package boundaries.

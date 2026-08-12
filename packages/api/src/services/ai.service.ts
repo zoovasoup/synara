@@ -1,43 +1,20 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "@gemastik/env/server";
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+export type AiMode = "gemini" | "mock";
 
-// --- SCRIPT CEK MODEL (Muncul di CMD pas bun dev) ---
-// const checkModels = async () => {
-// 	try {
-// 		// Kita tembak langsung endpoint REST-nya Google
-// 		const response = await fetch(
-// 			`https://generativelanguage.googleapis.com/v1beta/models?key=${env.GEMINI_API_KEY}`,
-// 		);
-// 		const data = (await response.json()) as { models: { name: string }[] };
+type GeminiGenerate = (
+	prompt: string,
+	systemInstruction?: string,
+) => Promise<string>;
 
-// 		if (data.models) {
-// 			console.log("\n🚀 [AI_SERVICE] MODEL YANG TERSEDIA BUAT API KEY LO:");
-// 			data.models.forEach((m) => {
-// 				// Nama aslinya biasanya: 'models/gemini-1.5-flash'
-// 				console.log(`- ${m.name}`);
-// 			});
-// 			console.log("------------------------------------------\n");
-// 		} else {
-// 			console.log("⚠️ Response Google aneh, cek API Key lo bener apa nggak.");
-// 		}
-// 	} catch (err) {
-// 		console.error("❌ Gagal narik list model:", err);
-// 	}
-// };
+type AiServiceOptions = {
+	mode: AiMode;
+	geminiApiKey?: string;
+	geminiGenerate?: GeminiGenerate;
+	logMode?: boolean;
+};
 
-// void checkModels();
-// --------------------------------------------------
-
-// Helper buat nunggu (delay)
-const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-/**
- * List model dari yang paling diprioritaskan.
- * Kalau 2.5 Flash tumbang (503), kita retry model yang sama dengan backoff.
- * Fallback model sebelumnya sudah tidak tersedia di API v1beta dan bikin 404.
- */
 const MODELS = [
 	"gemini-3.1-flash-lite-preview",
 	"gemini-2.5-flash-lite",
@@ -66,16 +43,13 @@ class GeminiServiceError extends Error {
 }
 
 function getErrorMessage(error: unknown) {
-	if (error instanceof Error) {
-		return error.message;
-	}
-
-	return String(error ?? "Unknown Gemini error");
+	return error instanceof Error
+		? error.message
+		: String(error ?? "Unknown Gemini error");
 }
 
 function getCompactErrorDetails(error: unknown) {
 	const message = getErrorMessage(error).replace(/\s+/g, " ").trim();
-
 	return message.length > 240 ? message.slice(0, 240) + "..." : message;
 }
 
@@ -89,7 +63,7 @@ function classifyGeminiError(error: unknown) {
 	) {
 		return new GeminiServiceError(
 			"high_demand",
-			"Server AI sedang penuh (High Demand). Silakan tunggu 10 detik lalu coba lagi.",
+			"The AI service is busy. Wait briefly and try again.",
 			error,
 		);
 	}
@@ -101,18 +75,15 @@ function classifyGeminiError(error: unknown) {
 	) {
 		return new GeminiServiceError(
 			"rate_limited",
-			"Kuota atau rate limit Gemini tercapai. Tunggu sebentar lalu coba lagi.",
+			"The AI service rate limit was reached. Wait briefly and try again.",
 			error,
 		);
 	}
 
-	if (
-		message.includes("404") ||
-		message.includes("not found for API version")
-	) {
+	if (message.includes("404") || message.includes("not found for API version")) {
 		return new GeminiServiceError(
 			"model_not_found",
-			"Model Gemini yang dikonfigurasi tidak tersedia untuk API ini. Periksa nama model fallback di server.",
+			"The configured Gemini model is unavailable.",
 			error,
 		);
 	}
@@ -125,7 +96,7 @@ function classifyGeminiError(error: unknown) {
 	) {
 		return new GeminiServiceError(
 			"invalid_api_key",
-			"GEMINI_API_KEY tidak valid atau tidak punya akses ke model yang dipakai.",
+			"The Gemini API configuration is invalid.",
 			error,
 		);
 	}
@@ -137,7 +108,7 @@ function classifyGeminiError(error: unknown) {
 	) {
 		return new GeminiServiceError(
 			"safety_blocked",
-			"Permintaan ke Gemini diblokir oleh safety filter. Coba ubah pertanyaan atau kurangi isi prompt yang sensitif.",
+			"The AI request was blocked. Revise the input and try again.",
 			error,
 		);
 	}
@@ -149,110 +120,319 @@ function classifyGeminiError(error: unknown) {
 	) {
 		return new GeminiServiceError(
 			"bad_request",
-			"Request ke Gemini tidak valid. Biasanya karena prompt terlalu besar atau format input tidak didukung.",
+			"The AI request was invalid. Revise the input and try again.",
 			error,
 		);
 	}
 
 	return new GeminiServiceError(
 		"unknown",
-		"Terjadi kegagalan saat menghubungi Gemini. Detail provider: " +
+		"The Gemini request failed. Provider detail: " +
 			getCompactErrorDetails(error),
 		error,
 	);
 }
 
-async function callGeminiWithRetry(
-	prompt: string,
-	systemInstruction?: string,
-	retries = 3,
-): Promise<string> {
-	let lastError: any;
-	let delay = 2000; // Mulai dengan 2 detik
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-	for (let i = 0; i < retries; i++) {
-		// Retry model yang sama dengan exponential backoff saat service sedang sibuk.
-		const modelName = i === 0 ? MODELS[0] : MODELS[1];
+function createGeminiGenerate(apiKey: string): GeminiGenerate {
+	const client = new GoogleGenerativeAI(apiKey);
 
-		try {
-			const model = genAI.getGenerativeModel({
-				model: modelName,
-				systemInstruction,
-			});
+	return async (prompt, systemInstruction) => {
+		let lastError: unknown;
+		let delay = 2000;
 
-			const result = await model.generateContent(prompt);
-			const response = await result.response;
-			return response.text().trim();
-		} catch (error: any) {
-			lastError = error;
-			const classifiedError = classifyGeminiError(error);
-			const is503 = classifiedError.code === "high_demand";
+		for (let attempt = 0; attempt < 3; attempt++) {
+			const modelName = MODELS[attempt] ?? MODELS.at(-1)!;
 
-			if (is503 && i < retries - 1) {
-				console.warn(
-					`[AI_RETRY] Attempt ${i + 1} failed (503). Retrying with ${modelName} in ${delay}ms...`,
-				);
-				await sleep(delay);
-				delay *= 2; // Naik jadi 4s, lalu 8s
-				continue;
+			try {
+				const model = client.getGenerativeModel({
+					model: modelName,
+					systemInstruction,
+				});
+				const result = await model.generateContent(prompt);
+				const response = await result.response;
+				return response.text().trim();
+			} catch (error: unknown) {
+				lastError = error;
+				const classifiedError = classifyGeminiError(error);
+				if (classifiedError.code === "high_demand" && attempt < 2) {
+					console.warn(
+						`[AI_RETRY] Attempt ${attempt + 1} failed. Retrying ${modelName} in ${delay}ms.`,
+					);
+					await sleep(delay);
+					delay *= 2;
+					continue;
+				}
+				break;
 			}
-
-			// Jika bukan error 503 atau retry habis, langsung lempar ke catch luar
-			break;
 		}
-	}
 
-	throw lastError;
+		throw lastError;
+	};
 }
 
-export const aiService = {
-	async generateText(prompt: string, systemInstruction?: string) {
+function compactTopic(value: string) {
+	const cleaned = value
+		.replace(/^User Goal:\s*/i, "")
+		.replace(/^['"]|['"]$/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+	return cleaned.slice(0, 72) || "the learning goal";
+}
+
+function extractLine(prompt: string, label: string) {
+	const line = prompt
+		.split("\n")
+		.find((candidate) => candidate.toLowerCase().startsWith(label.toLowerCase()));
+	return line?.slice(label.length).trim();
+}
+
+function createMockNodes(topic: string) {
+	const focus = compactTopic(topic);
+	return [
+		{
+			title: `${focus}: Foundations`,
+			difficulty_level: 2,
+			estimated_time: 20,
+			content_type: "reading",
+			success_criteria: [
+				`Explain the core purpose of ${focus} in your own words`,
+				`Identify two foundational ideas used in ${focus}`,
+			],
+		},
+		{
+			title: `${focus}: Core Concepts`,
+			difficulty_level: 4,
+			estimated_time: 25,
+			content_type: "socratic",
+			success_criteria: [
+				`Compare the main concepts involved in ${focus}`,
+				"Explain when each concept is useful",
+			],
+		},
+		{
+			title: `${focus}: Guided Practice`,
+			difficulty_level: 5,
+			estimated_time: 30,
+			content_type: "hands-on",
+			success_criteria: [
+				`Complete one guided ${focus} exercise`,
+				"Describe the reasoning behind each major step",
+			],
+		},
+		{
+			title: `${focus}: Applied Workflow`,
+			difficulty_level: 6,
+			estimated_time: 35,
+			content_type: "hands-on",
+			success_criteria: [
+				`Build a small, complete example involving ${focus}`,
+				"Check the result against explicit requirements",
+			],
+		},
+		{
+			title: `${focus}: Review and Validation`,
+			difficulty_level: 7,
+			estimated_time: 25,
+			content_type: "socratic",
+			success_criteria: [
+				`Teach back the complete ${focus} workflow`,
+				"Explain one tradeoff and one next improvement",
+			],
+		},
+	];
+}
+
+function createMockStructuredOutput(prompt: string, systemInstruction = "") {
+	if (systemInstruction.includes("Socratic Validator")) {
+		let latestMessage = prompt;
 		try {
-			return await callGeminiWithRetry(prompt, systemInstruction);
-		} catch (error: unknown) {
-			const classifiedError = classifyGeminiError(error);
-			console.error(
-				"AI_SERVICE_TEXT_ERROR:",
-				classifiedError.message,
-				classifiedError.cause ?? error,
-			);
-			throw classifiedError;
+			const history = JSON.parse(prompt) as { role?: string; content?: string }[];
+			latestMessage = history.at(-1)?.content ?? prompt;
+		} catch {
+			// The deterministic fallback below still handles a plain-text prompt.
 		}
-	},
+		const passes = latestMessage.toLowerCase().includes("[mock-pass]");
+		return {
+			ai_response: passes
+				? "Your explanation connects the idea to an application. You are ready to continue."
+				: "Review the core idea, then explain why it works and give one concrete example.",
+			competency_score: passes ? 88 : 55,
+			stumble_count: passes ? 0 : 1,
+			sentiment_score: 0.5,
+		};
+	}
 
-	async generateStructuredOutput(prompt: string, systemInstruction?: string) {
+	if (systemInstruction.includes("replacement path of 3-5 nodes")) {
+		let problematicTitle = "the challenging concept";
 		try {
-			const text = await callGeminiWithRetry(prompt, systemInstruction);
+			const context = JSON.parse(prompt) as {
+				problematicNode?: { title?: string };
+			};
+			problematicTitle = context.problematicNode?.title ?? problematicTitle;
+		} catch {
+			// Keep the bounded fallback title.
+		}
+		return {
+			nodes: [
+				{
+					title: `${problematicTitle}: Prerequisite Foundation`,
+					difficulty_level: 2,
+					estimated_time: 15,
+					content_type: "reading",
+					success_criteria: ["Explain the prerequisite idea", "Identify the missing connection"],
+				},
+				{
+					title: `${problematicTitle}: Guided Practice`,
+					difficulty_level: 3,
+					estimated_time: 20,
+					content_type: "hands-on",
+					success_criteria: ["Complete the guided example", "Explain each step in the example"],
+				},
+				{
+					title: `${problematicTitle}: Applied Practice`,
+					difficulty_level: 4,
+					estimated_time: 25,
+					content_type: "socratic",
+					success_criteria: ["Apply the concept to a new example", "Explain why the approach works"],
+				},
+			],
+		};
+	}
 
-			// Logic buat bersihin markdown backticks
-			const cleanJson = text.replace(/```json|```/g, "").trim();
+	if (systemInstruction.includes("senior learning designer")) {
+		const nodeTitle = extractLine(prompt, "Node title:") ?? "Current learning step";
+		return {
+			summary: `This lesson builds a practical understanding of ${nodeTitle}.`,
+			concepts: [
+				`The purpose and vocabulary of ${nodeTitle}`,
+				`How ${nodeTitle} connects to the wider learning goal`,
+				`Common mistakes to avoid while applying ${nodeTitle}`,
+			],
+			steps: [
+				`Describe ${nodeTitle} in plain language.`,
+				`Work through one small example of ${nodeTitle}.`,
+				`Check the example against the step's success criteria.`,
+			],
+			exercises: [
+				`Create a short example that demonstrates ${nodeTitle}, then explain your decisions.`,
+			],
+		};
+	}
 
-			// Parsing dengan try-catch internal biar kalau AI ngaco nggak langsung crash
-			try {
-				return JSON.parse(cleanJson);
-			} catch (parseError) {
-				console.error("AI_JSON_PARSE_ERROR:", {
-					responsePreview: text.slice(0, 1200),
-					parseError,
-				});
-				throw new GeminiServiceError(
-					"invalid_json",
-					"Gemini mengembalikan format yang bukan JSON valid. Coba ulangi request atau perketat prompt/output schema.",
-					parseError,
-				);
+	if (systemInstruction.includes("Micro-Curriculum Synthesis")) {
+		return { nodes: createMockNodes(prompt) };
+	}
+
+	throw new Error("Mock AI received an unsupported structured-output request.");
+}
+
+function createMockText(prompt: string, systemInstruction = "") {
+	const nodeTitle =
+		systemInstruction.match(/active roadmap node is:\s*([^\n.]+)/i)?.[1]?.trim() ??
+		"this step";
+	const learnerQuestion =
+		prompt
+			.split("\n")
+			.filter((line) => line.startsWith("Learner:"))
+			.at(-1)
+			?.slice("Learner:".length)
+			.trim() ?? prompt.trim();
+
+	return [
+		`Let’s work through ${nodeTitle} using your question: “${learnerQuestion}”`,
+		"Start by naming the part that feels unclear, then connect it to one concrete example.",
+		"Try explaining that connection in one or two sentences, and I can help refine the reasoning.",
+	].join("\n\n");
+}
+
+export function createAiService({
+	mode,
+	geminiApiKey,
+	geminiGenerate,
+	logMode = false,
+}: AiServiceOptions) {
+	let logged = false;
+	let resolvedGeminiGenerate = geminiGenerate;
+
+	const logModeOnce = () => {
+		if (!logMode || logged) return;
+		logged = true;
+		console.info(`AI mode: ${mode}`);
+	};
+
+	const getGeminiGenerate = () => {
+		if (resolvedGeminiGenerate) return resolvedGeminiGenerate;
+		if (!geminiApiKey) {
+			throw new GeminiServiceError(
+				"invalid_api_key",
+				"GEMINI_API_KEY is required when AI_MODE=gemini.",
+			);
+		}
+		resolvedGeminiGenerate = createGeminiGenerate(geminiApiKey);
+		return resolvedGeminiGenerate;
+	};
+
+	return {
+		mode,
+
+		async generateText(prompt: string, systemInstruction?: string) {
+			logModeOnce();
+			if (mode === "mock") {
+				return createMockText(prompt, systemInstruction);
 			}
-		} catch (error: unknown) {
-			const classifiedError =
-				error instanceof GeminiServiceError
-					? error
-					: classifyGeminiError(error);
 
-			console.error(
-				"AI_SERVICE_STRUCTURED_ERROR:",
-				classifiedError.message,
-				classifiedError.cause ?? error,
-			);
-			throw classifiedError;
-		}
-	},
-};
+			try {
+				return await getGeminiGenerate()(prompt, systemInstruction);
+			} catch (error: unknown) {
+				const classifiedError = classifyGeminiError(error);
+				console.error("AI_SERVICE_TEXT_ERROR:", classifiedError.message);
+				throw classifiedError;
+			}
+		},
+
+		async generateStructuredOutput(
+			prompt: string,
+			systemInstruction?: string,
+		) {
+			logModeOnce();
+			if (mode === "mock") {
+				return createMockStructuredOutput(prompt, systemInstruction);
+			}
+
+			try {
+				const text = await getGeminiGenerate()(prompt, systemInstruction);
+				const cleanJson = text.replace(/```json|```/g, "").trim();
+				try {
+					return JSON.parse(cleanJson) as unknown;
+				} catch (parseError) {
+					console.error("AI_JSON_PARSE_ERROR:", {
+						responsePreview: text.slice(0, 1200),
+					});
+					throw new GeminiServiceError(
+						"invalid_json",
+						"Gemini returned invalid structured output. Try again.",
+						parseError,
+					);
+				}
+			} catch (error: unknown) {
+				const classifiedError =
+					error instanceof GeminiServiceError
+						? error
+						: classifyGeminiError(error);
+				console.error(
+					"AI_SERVICE_STRUCTURED_ERROR:",
+					classifiedError.message,
+				);
+				throw classifiedError;
+			}
+		},
+	};
+}
+
+export const aiService = createAiService({
+	mode: env.AI_MODE,
+	geminiApiKey: env.GEMINI_API_KEY,
+	logMode: true,
+});

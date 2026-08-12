@@ -21,7 +21,8 @@ Next.js App Router (apps/web)
   |
   +--> @gemastik/auth --> Better Auth + Drizzle adapter
   +--> @gemastik/db   --> PostgreSQL via Drizzle + curated learning sources
-  +--> Gemini API     --> roadmap, lesson body, tutor, validation, recalibration
+  +--> AI service     --> Gemini or deterministic development mock
+                         roadmap, lesson body, tutor, validation, recalibration
 ```
 
 ## 2. Repository Structure
@@ -133,23 +134,27 @@ Primary responsibilities:
 
 ## 6. AI Service
 
-`packages/api/src/services/ai.service.ts` centralizes Gemini calls.
+`packages/api/src/services/ai.service.ts` centralizes the server-side AI provider decision. Callers use one stable text/structured-output contract; routers do not branch on provider mode.
 
 ### Responsibilities
 
 - plain-text generation;
 - structured JSON generation;
+- deterministic mock responses for every active AI flow;
 - provider error classification;
 - limited retry/backoff handling;
 - JSON cleanup and parsing.
 
-### Current model configuration
+`AI_MODE=mock` returns realistic roadmap, lesson, Tutor, Validator, and recalibration data without constructing or calling the Gemini request client. Validator messages containing `[mock-pass]` return a passing competency result; `[mock-fail]` and unmarked messages return a non-passing result. These are server-side developer conventions and are not exposed as production UI controls. Deterministic Stagnation Score calculation remains outside the AI provider.
+
+### Gemini model configuration
 
 The service defines:
 
 ```text
+gemini-3.1-flash-lite-preview
+gemini-2.5-flash-lite
 gemini-2.5-flash
-gemini-1.5-flash
 ```
 
 The helper changes model after the first failed attempt. Documentation and comments around retry behavior should be kept synchronized with the actual code if this strategy changes.
@@ -383,16 +388,19 @@ The historical design claims Supabase Row Level Security. Repository search does
 
 ## 14. Environment Variables
 
-Server configuration currently requires:
+Server configuration currently uses:
 
 - `DATABASE_URL`
-- `GEMINI_API_KEY`
+- `AI_MODE` (`gemini` or `mock`, default `gemini`)
+- `GEMINI_API_KEY` (required only in `gemini` mode)
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `CORS_ORIGIN`
 - `NODE_ENV` (optional default: development)
 
 Environment validation lives in `packages/env/src/server.ts`.
+
+The checked-in `.env.example` selects mock mode for safe local development. Production behavior remains Gemini unless explicitly configured otherwise.
 
 Do not commit real secrets.
 

@@ -102,20 +102,22 @@ Install dependencies:
 bun install
 ```
 
-Create the required environment configuration:
+Copy `.env.example` to `.env` and configure the required environment values:
 
 ```text
 DATABASE_URL
-GEMINI_API_KEY
+AI_MODE
 BETTER_AUTH_SECRET
 BETTER_AUTH_URL
 CORS_ORIGIN
 ```
 
-Apply the database schema:
+Use `AI_MODE=mock` for deterministic local development without Gemini requests. Use `AI_MODE=gemini` for the real provider; only that mode requires a real `GEMINI_API_KEY`. Mock mode is intended for development and testing, not production learning decisions.
+
+Apply tracked database migrations:
 
 ```bash
-bun run db:push
+bun run db:migrate
 ```
 
 Start the workspace:
@@ -143,12 +145,13 @@ bun run db:push
 bun run db:generate
 bun run db:migrate
 bun run db:studio
+bun run test:ai-mock
 ```
 
 ## Development Notes
 
 - Core learner operations are protected through Better Auth-backed tRPC middleware and user ownership filtering.
-- Gemini structured output is parsed centrally and validated by domain schemas before core persistence/use.
+- AI mode selection is centralized; Gemini structured output is parsed centrally and all provider output is validated by domain schemas before core persistence/use.
 - Lesson content is generated lazily and persisted rather than regenerated on every visit.
 - Tutor and Socratic Validator are intentionally separate responsibilities.
 - A manual node-completion path currently exists alongside Socratic completion; this is a known product decision that still needs to be resolved.

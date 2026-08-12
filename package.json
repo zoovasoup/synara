@@ -37,7 +37,8 @@
     "db:generate": "turbo -F @gemastik/db db:generate",
     "db:migrate": "turbo -F @gemastik/db db:migrate",
     "db:seed:sources": "bun run --cwd packages/db db:seed:sources",
-    "test:sources": "bun run --cwd packages/api test:sources"
+    "test:sources": "bun run --cwd packages/api test:sources",
+    "test:ai-mock": "bun run --cwd packages/api test:ai-mock"
   },
   "dependencies": {
     "@gemastik/env": "workspace:*",

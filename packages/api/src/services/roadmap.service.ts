@@ -1,4 +1,9 @@
 import { aiService } from "./ai.service";
+import { z } from "zod";
+
+const roadmapEnvelopeSchema = z.object({
+	nodes: z.array(z.unknown()),
+});
 
 export interface RecalibrateInput {
 	goal: string;
@@ -70,7 +75,7 @@ export const roadmapService = {
 				prompt,
 				systemInstruction,
 			);
-			return roadmap;
+			return roadmapEnvelopeSchema.parse(roadmap);
 		} catch (error) {
 			console.error("ROADMAP_GENERATION_FAILED:", error);
 			throw error;
@@ -110,9 +115,8 @@ export const roadmapService = {
 			},
 		});
 
-		return await aiService.generateStructuredOutput(
-			prompt,
-			systemInstruction,
+		return roadmapEnvelopeSchema.parse(
+			await aiService.generateStructuredOutput(prompt, systemInstruction),
 		);
 	},
 };
