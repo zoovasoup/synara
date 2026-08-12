@@ -20,7 +20,7 @@ The audit was performed against the implementation state on `master` immediately
 | --- | --- | --- | --- |
 | Email/password authentication | Implemented | Better Auth with Drizzle/PostgreSQL | Core learning procedures are protected by authenticated session middleware. |
 | Authenticated learner dashboard | Implemented | Saved roadmaps can be listed and reopened | Current product is learner-only. |
-| Five-step course onboarding | Implemented | Topic, level, goal, weekly hours, learning style | Responsive drawer UI. |
+| Five-answer course onboarding | Implemented | Topic, level, goal, weekly hours, and learning style are grouped into three visual stages | Responsive bottom drawer on mobile and side drawer on larger screens. |
 | Initial AI roadmap generation | Implemented | Gemini generates up to 5 nodes with typed metadata | Structured output is validated before persistence. |
 | Draft fallback on generation failure | Implemented | Guided creation can save a roadmap with zero nodes and `generationStatus: draft` | Recovery UI beyond the draft state is still limited. |
 | Persistent roadmaps and nodes | Implemented | PostgreSQL + Drizzle | Ownership is tied to authenticated user IDs. |

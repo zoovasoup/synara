@@ -4,6 +4,7 @@ import type {
 	ResolvedSidebarData,
 	ResolvedSidebarItem,
 } from "@/lib/sidebar-config";
+import Link from "next/link";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
@@ -16,7 +17,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@gemastik/ui/components/sidebar";
-import { LayoutDashboardIcon, Settings2Icon, CommandIcon } from "lucide-react";
+import { BookOpenCheckIcon, LayoutDashboardIcon, Settings2Icon } from "lucide-react";
 
 const iconMap = {
 	"layout-dashboard": <LayoutDashboardIcon />,
@@ -49,9 +50,9 @@ export function AppSidebar({
 					<SidebarMenuItem>
 						<SidebarMenuButton
 							className="data-[slot=sidebar-menu-button]:p-1.5!"
-							render={<a href="#" />}
+							render={<Link href="/dashboard" />}
 						>
-							<CommandIcon className="size-5!" />
+							<BookOpenCheckIcon className="size-5!" aria-hidden="true" />
 							<span className="text-base font-semibold">Synara</span>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

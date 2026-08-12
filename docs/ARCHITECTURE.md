@@ -80,16 +80,19 @@ synara/
 
 ### Main product components
 
-- `create-course-dialog.tsx` — five-step course onboarding and course creation mutation
-- `course-card.tsx` — dashboard course summary
-- `course-workspace.tsx` — roadmap, lesson content, tutor, Socratic validation, node completion
+- `create-course-dialog.tsx` — three-stage presentation of five onboarding answers and the course creation mutation
+- `course-card.tsx` — focused dashboard course summary and continuation affordance
+- `course-workspace.tsx` — course/server-state orchestration, Tutor, Socratic validation, and adaptive UI state
+- `course-workspace-sections.tsx` — presentational roadmap sequence and lesson/article surfaces
 - `app-sidebar.tsx` and navigation components — authenticated app shell
 
-The course workspace is currently a three-column composition on large screens:
+The course workspace is a lesson-dominant three-area composition on large screens:
 
 1. roadmap node list;
 2. selected node lesson content; and
 3. coach panel containing Tutor and Validation tabs.
+
+At narrower widths these areas stack so roadmap and coach remain fully available without squeezing three columns into the viewport. Roadmap, lesson, and coach use focused scroll surfaces on desktop-height layouts.
 
 `use-active-study-attempt.ts` measures a lightweight current-node attempt window after lesson content is available. It pauses while the document is hidden, during validation network wait, or while a completed node is being reviewed. The workspace increments a backtrack only when navigation leaves the current node for an earlier completed node and submits elapsed/backtrack deltas plus effort 1-9 with Socratic validation.
 
@@ -402,7 +405,7 @@ The global theme currently uses:
 - Plus Jakarta Sans as sans-serif;
 - Lora as serif;
 - IBM Plex Mono as monospace;
-- zero base radius (`--radius: 0rem`);
+- restrained soft geometry (`--radius: 0.625rem`);
 - a violet/purple primary color family;
 - light and dark themes;
 - restrained shadows and flat bordered surfaces.
@@ -419,7 +422,7 @@ See `STYLE_GUIDE.md` for implementation conventions.
 6. Several historical names remain in package names/prompts (`gemastik`, `Gradio`).
 7. Recalibration recovery handles normal request/provider/database failures, but no lease timeout recovers a process terminated after claiming `recalibrating`.
 8. The curated-source catalog infrastructure is connected, but its seed dataset is intentionally empty pending manual research and verification; there is no crawler, broken-link checker, or curation UI.
-9. `course-workspace.tsx` is large and currently combines data orchestration and multiple UI concerns; future refactoring may improve maintainability, but functionality should take priority over cosmetic decomposition.
+9. The workspace container still owns intertwined learning-query and mutation orchestration; roadmap and lesson presentation are extracted, while further splitting should preserve the current single source of server state.
 
 ## 17. Change Safety
 

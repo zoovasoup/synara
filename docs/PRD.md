@@ -56,7 +56,7 @@ Synara addresses these by combining a persistent roadmap, node-level lessons, co
 
 1. The learner signs up or signs in.
 2. The learner enters the dashboard.
-3. The learner creates a course through a five-question onboarding flow:
+3. The learner creates a course through three visual onboarding stages that retain five answers:
    - topic;
    - current level;
    - learning goal/motivation;

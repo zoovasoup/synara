@@ -199,13 +199,13 @@ The canonical product name is **Synara**, but code/package names such as `@gemas
 - Product UI copy is predominantly English.
 - Use shared primitives from `@gemastik/ui`.
 - Theme tokens live in `packages/ui/src/styles/globals.css`.
-- Square/flat visual language: base radius is `0rem`.
+- Restrained soft geometry: the shared base radius is `0.625rem`; use hierarchy and spacing before adding containers.
 - Primary accent is violet/purple through semantic tokens.
 - Plus Jakarta Sans is the primary UI font.
 - Support light/dark theme tokens.
 - Prefer semantic theme classes over hard-coded colors.
-- Course creation uses a bottom drawer on mobile and right drawer on larger screens.
-- Course workspace uses a three-column large-screen layout.
+- Course creation groups the five persisted onboarding answers into three visual stages, using a bottom drawer on mobile and right drawer on larger screens.
+- Course workspace uses a lesson-dominant three-area layout on large screens and a readable stacked layout at narrower widths.
 
 See `STYLE_GUIDE.md` before visual changes.
 

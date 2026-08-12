@@ -10,7 +10,7 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 h-5 data-vertical:self-auto"
         />
-        <h1 className="text-base font-semibold">Documents</h1>
+        <span className="text-sm font-medium text-muted-foreground">Learning workspace</span>
       </div>
     </header>
   )

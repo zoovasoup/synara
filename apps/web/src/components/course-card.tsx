@@ -1,26 +1,21 @@
-import Link from 'next/link'
 import type { Route } from 'next'
+import Link from 'next/link'
 
 import { Badge } from '@gemastik/ui/components/badge'
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@gemastik/ui/components/card'
-import { BookOpenIcon, CalendarClockIcon, CircleDashedIcon, SparklesIcon } from 'lucide-react'
+import { buttonVariants } from '@gemastik/ui/components/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@gemastik/ui/components/card'
+import { cn } from '@gemastik/ui/lib/utils'
+import { ArrowRightIcon } from 'lucide-react'
 
 type CourseCardProps = {
   title: string
   description: string
   level: string
-  weeklyHours: string
-  learningStyle: string
-  nodeCount: number
+  completedSteps: number
+  totalSteps: number
   progress: number | null
   status: string
-  createdAt: string
+  currentNodeTitle: string | null
   href: string
 }
 
@@ -28,58 +23,58 @@ export function CourseCard({
   title,
   description,
   level,
-  weeklyHours,
-  learningStyle,
-  nodeCount,
+  completedSteps,
+  totalSteps,
   progress,
   status,
-  createdAt,
+  currentNodeTitle,
   href,
 }: CourseCardProps) {
+  const progressValue = progress ?? 0
   const progressLabel = progress === null ? 'Roadmap draft' : `${progress}% complete`
 
   return (
-    <Link href={href as Route} className='block h-full'>
-      <Card className='h-full transition-colors hover:bg-accent/30'>
-        <CardHeader className='space-y-5'>
-          <div className='flex items-start justify-between gap-3'>
-            <Badge variant='secondary' className='px-3 py-1 text-xs font-medium'>
-              {level}
-            </Badge>
-            <span className='text-sm font-medium text-muted-foreground'>{progressLabel}</span>
+    <Card className='h-full transition-[background-color,box-shadow] hover:bg-accent/20 hover:shadow-sm'>
+      <CardHeader className='gap-3'>
+        <div className='flex items-center justify-between gap-3'>
+          <Badge variant='secondary'>{level}</Badge>
+          <span className='text-xs text-muted-foreground'>{status}</span>
+        </div>
+        <div className='flex min-w-0 flex-col gap-2'>
+          <CardTitle className='text-base leading-snug text-pretty'>{title}</CardTitle>
+          <p className='line-clamp-2 break-words text-sm leading-6 text-muted-foreground'>{description}</p>
+        </div>
+      </CardHeader>
+      <CardContent className='flex flex-1 flex-col gap-4'>
+        <div className='flex flex-col gap-2'>
+          <div className='flex items-center justify-between gap-3 text-xs'>
+            <span className='font-medium'>{progressLabel}</span>
+            <span className='tabular-nums text-muted-foreground'>
+              {completedSteps} of {totalSteps} steps
+            </span>
           </div>
-          <div className='space-y-3'>
-            <CardTitle className='text-lg leading-tight'>{title}</CardTitle>
-            <p className='line-clamp-4 text-sm leading-6 text-muted-foreground'>{description}</p>
+          <div
+            role='progressbar'
+            aria-label={`${title} progress`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressValue}
+            className='h-1.5 overflow-hidden rounded-full bg-muted'
+          >
+            <div className='h-full rounded-full bg-primary transition-[width]' style={{ width: `${progressValue}%` }} />
           </div>
-        </CardHeader>
-        <CardContent className='space-y-5'>
-          <div className='h-2 overflow-hidden bg-muted'>
-            <div className='h-full bg-primary transition-[width]' style={{ width: `${progress ?? 12}%` }} />
-          </div>
-          <div className='flex flex-wrap gap-4 text-sm text-muted-foreground'>
-            <div className='flex items-center gap-2'>
-              <BookOpenIcon className='size-4' />
-              <span>{nodeCount} roadmap step{nodeCount === 1 ? '' : 's'}</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <CalendarClockIcon className='size-4' />
-              <span>{weeklyHours}</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <SparklesIcon className='size-4' />
-              <span>{learningStyle}</span>
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className='flex items-center justify-between gap-4 pt-1 text-sm text-muted-foreground'>
-          <div className='flex items-center gap-2'>
-            <CircleDashedIcon className='size-4' />
-            <span>{status}</span>
-          </div>
-          <span>{createdAt}</span>
-        </CardFooter>
-      </Card>
-    </Link>
+        </div>
+        <p className='text-sm leading-6 text-muted-foreground'>
+          <span className='font-medium text-foreground'>{currentNodeTitle ? 'Current: ' : totalSteps === 0 ? 'Next: ' : 'Review: '}</span>
+          {currentNodeTitle ?? (totalSteps === 0 ? 'Generate the roadmap' : 'Review completed work')}
+        </p>
+      </CardContent>
+      <CardFooter className='justify-end border-t-0 pt-0'>
+        <Link href={href as Route} className={cn(buttonVariants({ variant: 'outline' }))}>
+          {progress === 100 ? 'Review course' : 'Continue'}
+          <ArrowRightIcon data-icon='inline-end' aria-hidden='true' />
+        </Link>
+      </CardFooter>
+    </Card>
   )
 }
