@@ -43,6 +43,13 @@
       "when": 1786535000411,
       "tag": "0005_eager_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786536665724,
+      "tag": "0006_shallow_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

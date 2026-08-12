@@ -20,8 +20,8 @@ Next.js App Router (apps/web)
   |-- AI + roadmap services
   |
   +--> @gemastik/auth --> Better Auth + Drizzle adapter
-  +--> @gemastik/db   --> PostgreSQL via Drizzle
-  +--> Gemini API     --> roadmap, lesson, tutor, validation, recalibration
+  +--> @gemastik/db   --> PostgreSQL via Drizzle + curated learning sources
+  +--> Gemini API     --> roadmap, lesson body, tutor, validation, recalibration
 ```
 
 ## 2. Repository Structure
@@ -192,21 +192,20 @@ Input includes the original goal, completed-node titles, learner level when avai
 
 The service asks Gemini to generate a replacement path that is easier or includes missing prerequisite bridges.
 
-## 8. Lesson Generation
+## 8. Lesson Generation and Curated Sources
 
-Lesson content is generated lazily when a learner first requests a node's content or asks the tutor a question about a node whose lesson has not yet been generated.
+Lesson content is assembled lazily when a learner first requests a node's content or asks the tutor about a node without a persisted lesson.
 
-The generated structure contains:
+```text
+Gemini -> validated summary/concepts/steps/exercises
+PostgreSQL learning_sources -> verified + active candidates
+deterministic matcher -> up to 3 relevant source snapshots
+server -> persisted roadmap_nodes.lesson_content
+```
 
-- summary;
-- concepts;
-- steps;
-- exercises;
-- resource descriptors.
+The matcher normalizes topic, node-title, and goal tokens; scores tag overlap at 12 points per token and source-title overlap at 4 points per token; then applies explicit learner-level influence (exact +4, `all` +2, opposite beginner/advanced -2). A source must have topical overlap to qualify. Ties resolve by source-category priority, title, provider, then ID, so ordering is stable.
 
-Once generated, lesson content is stored in `roadmap_nodes.lesson_content` and reused on later reads.
-
-This reduces unnecessary AI calls for nodes the learner never opens.
+Gemini is explicitly asked for the lesson body only and its Zod schema has no resource field. Learner-visible source ID, title, provider, URL, category, level, and description are copied only from database records. Persisted lesson JSON carries `resourceModelVersion: 1`; source snapshots are rematched against currently eligible rows on lesson access, while unchanged content avoids a write. Legacy lessons without the marker retain their body, discard old AI descriptors, rematch the catalog, and persist the normalized result. Zero matches is a valid empty resource list.
 
 ## 9. Tutor Flow
 
@@ -350,6 +349,10 @@ Logs for deleted incomplete nodes cascade during successful recalibration. Their
 
 Stores learner/roadmap ownership, trigger node title, Stagnation Score and intervention level, trigger reasons, old unfinished node titles, replacement node titles, and creation time. It deliberately snapshots the trigger title rather than referencing a node that will be deleted.
 
+### `learning_sources`
+
+Stores unique URLs and manually controlled source title, provider, category, level, normalized tags, description, active/verified state, nullable verification time, and timestamps. Only verified and active rows are queried for lesson matching. The catalog seed is typed, URL-validated, repeatable by unique-URL upsert, and intentionally empty until manual verification is completed.
+
 ### `micro_artifacts`
 
 Schema exists for artifact URL, verification status, and AI critique. No current API/UI workflow uses it.
@@ -415,7 +418,8 @@ See `STYLE_GUIDE.md` for implementation conventions.
 5. Legacy manual completion/reopen API mutations remain for compatibility but are not exposed by the learner workspace.
 6. Several historical names remain in package names/prompts (`gemastik`, `Gradio`).
 7. Recalibration recovery handles normal request/provider/database failures, but no lease timeout recovers a process terminated after claiming `recalibrating`.
-8. `course-workspace.tsx` is large and currently combines data orchestration and multiple UI concerns; future refactoring may improve maintainability, but functionality should take priority over cosmetic decomposition.
+8. The curated-source catalog infrastructure is connected, but its seed dataset is intentionally empty pending manual research and verification; there is no crawler, broken-link checker, or curation UI.
+9. `course-workspace.tsx` is large and currently combines data orchestration and multiple UI concerns; future refactoring may improve maintainability, but functionality should take priority over cosmetic decomposition.
 
 ## 17. Change Safety
 

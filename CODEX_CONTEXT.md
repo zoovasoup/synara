@@ -6,7 +6,7 @@ Use this file as the compact technical context for coding-agent work in this rep
 
 Synara is an AI-assisted adaptive learning workspace. A learner creates a course from a learning goal, receives an AI-generated roadmap, studies generated node lessons, asks a contextual tutor for help, and validates understanding through Socratic dialogue.
 
-The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and automatically invokes the existing recalibration mutation from the learner workspace. Recalibration preserves completed work, transactionally replaces the unfinished path, records a compact history log, and selects the new current node.
+The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and automatically invokes the existing recalibration mutation from the learner workspace. Recalibration preserves completed work, transactionally replaces the unfinished path, records a compact history log, and selects the new current node. Lazy lesson generation also attaches deterministic snapshots from a manually verified PostgreSQL learning-source catalog; Gemini generates the lesson body but never supplies learner-visible external source identity or URLs.
 
 ## 2. Read Order
 
@@ -103,6 +103,7 @@ Active in core flows:
 - `socratic_sessions`
 - `learning_logs`
 - `recalibration_logs`
+- `learning_sources`
 
 Existing but not wired into active business flows:
 
@@ -150,6 +151,10 @@ Structured Gemini output must be runtime-validated before persistence/use. Do no
 ### Persist generated lesson content
 
 Do not regenerate a node lesson on every visit. The current design lazily generates once and persists the result.
+
+### Curated external source authority
+
+Learner-visible lesson resources come only from verified, active `learning_sources` rows. Matching is deterministic from topic, node title, goal tokens, and explicit learner-level compatibility. Gemini generates summary, concepts, steps, and exercises only. Versioned source snapshots are persisted with lesson JSON and refreshed from eligible catalog rows on lesson access; legacy AI resource descriptors are removed without regenerating the lesson body. An empty catalog produces an empty resource list, not AI fallback links.
 
 ### Multi-record mutations
 
@@ -210,7 +215,7 @@ Current AI responsibilities:
 
 1. initial roadmap generation;
 2. replacement-roadmap generation;
-3. node lesson generation;
+3. node lesson-body generation (never trusted external source metadata);
 4. tutor response generation;
 5. Socratic validation/scoring/sentiment signal extraction.
 
@@ -274,8 +279,9 @@ For any meaningful code change:
 
 Unless the active task says otherwise, the largest current product gaps are:
 
-1. decide whether the legacy manual completion/reopen mutations can be removed entirely;
-2. add database-backed integration coverage around AI and transaction failures;
-3. only then expand long-term cognitive profiling/logging if it remains in scope.
+1. manually research, verify, and populate the intentionally empty curated-source seed catalog;
+2. decide whether the legacy manual completion/reopen mutations can be removed entirely;
+3. add database-backed integration coverage around AI and transaction failures;
+4. only then expand long-term cognitive profiling/logging if it remains in scope.
 
 Do not automatically implement these when assigned an unrelated task; they are context, not standing authorization for scope expansion.

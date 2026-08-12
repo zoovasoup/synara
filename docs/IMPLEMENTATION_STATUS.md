@@ -27,7 +27,7 @@ The audit was performed against the implementation state on `master` immediately
 | Node progress tracking | Implemented | Completion state and completion timestamp stored per node | Roadmap is marked completed when all nodes are complete. |
 | Linear prerequisite locking | Implemented | Access is derived from ordered `orderIndex` + `isCompleted` state and enforced by node-specific learner procedures | Completed nodes are reviewable, the first incomplete node is current, and later incomplete nodes are locked; this is not a general dependency graph. |
 | Lazy lesson generation | Implemented | Lesson generated when selected/needed and stored in node JSON | Avoids repeated AI calls after persistence. |
-| Lesson summary/concepts/steps/exercises/resources | Implemented | Structured lesson JSON rendered in course workspace | Current resources are descriptors, not curated external links. |
+| Lesson summary/concepts/steps/exercises/resources | Implemented | Gemini generates the lesson body; the server deterministically attaches verified, active database source snapshots before persisting lesson JSON | Zero matched sources is valid and renders a calm empty state. |
 | Contextual AI tutor | Implemented | Tutor receives goal, node, success criteria, lesson context | Tutor explicitly does not grade or mark progress. |
 | Persistent tutor history | Implemented | One tutor session per learner + node | Conversation survives revisits. |
 | Socratic validation chat | Implemented | Persistent validation session per node | Separate from tutor role. |
@@ -46,7 +46,7 @@ The audit was performed against the implementation state on `master` immediately
 | Learning activity logs | Implemented for Stagnation MVP | One aggregate row per authenticated learner + node stores active seconds, failure/time/backtrack/effort metrics, score, level, and trigger reasons | Tutor learner turns are derived from persistent Tutor history rather than duplicated. |
 | Micro-artifact records | Schema-only | `micro_artifacts` table exists | No submission, review, or UI workflow. |
 | Long-term cognitive adaptation | Not implemented | Historical design describes it | Current recalibration uses recent Socratic failure context instead. |
-| Curated learning-source database | Not implemented | No active source ingestion/curation pipeline found | AI lesson resources are descriptive text only. |
+| Curated learning-source database | Implemented infrastructure | `learning_sources`, typed repeatable seed, deterministic matcher, lazy lesson integration, legacy normalization, and trusted-link UI are connected | The seed dataset is intentionally empty pending separate manual research and verification; no crawler/admin ingestion exists. |
 | Supabase/Postgres RLS policies | Not evidenced | Historical design claims RLS | No repository-owned RLS policy/migration was found during audit. |
 | Instructor/admin workflows | Not implemented | No core product role/flow found | Outside current learner MVP. |
 
@@ -61,7 +61,7 @@ Sign up / sign in
   -> Gemini roadmap generation
   -> Open course
   -> Open the first incomplete/current node
-  -> Lazy lesson generation + persistence
+  -> Lazy lesson-body generation + deterministic curated-source attachment + persistence
   -> Ask contextual tutor questions
   -> Enter Socratic validation
   -> Reach competency >= 80
@@ -114,6 +114,10 @@ The table exists, but no active API/UI flow verifies repositories, files, or liv
 
 Confirm whether any non-workspace consumers still require `finishNode` or `reopenNode`, then remove them if compatibility is no longer needed.
 
+### P1 — Populate the curated-source catalog
+
+Manually research and verify real official documentation, open courseware, and tutorial entries before adding them to the typed source seed. The application intentionally returns no external links until qualifying verified, active rows exist.
+
 ### P1 — Expand adaptive data only when required
 
 If long-term personalization remains in scope:
@@ -143,6 +147,8 @@ A focused progression check now covers the derived completed/current/locked stat
 A focused Stagnation Score check covers the deterministic signal weights, exclusive time tiers, all three hard triggers, mastery precedence, and completed-node review isolation. It is also a domain-level check rather than a database-backed router integration suite.
 
 Focused recalibration checks cover eligibility, state transitions, preservation/replacement ordering, derived progression, metadata, logging, duplicate calls, generation/database failure boundaries, and frontend single-flight orchestration. They use deterministic fakes rather than a live PostgreSQL transaction or Gemini integration.
+
+Focused curated-source checks cover verified/active filtering, tag and level ranking, deterministic ordering, result limits, no-match and empty-catalog behavior, database authority over AI resource fields, legacy lesson-body preservation, and replacement-node reuse of the normal lesson path. They are domain-level checks rather than a live PostgreSQL lesson query.
 
 For meaningful feature changes, at minimum verify:
 

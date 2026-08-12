@@ -12,16 +12,55 @@ import {
 import { user } from "./auth";
 
 type LessonContent = {
+	resourceModelVersion: 1;
 	summary: string;
 	concepts: string[];
 	steps: string[];
 	exercises: string[];
 	resources: {
+		sourceId: string;
 		title: string;
+		provider: string;
+		url: string;
+		sourceType:
+			| "official_documentation"
+			| "open_courseware"
+			| "verified_tutorial";
+		level: "beginner" | "intermediate" | "advanced" | "all";
 		description: string;
-		type: "reading" | "video" | "hands-on" | "socratic";
 	}[];
 };
+
+export const learningSources = pgTable(
+	"learning_sources",
+	{
+		id: text("id").primaryKey(),
+		title: text("title").notNull(),
+		provider: text("provider").notNull(),
+		url: text("url").notNull(),
+		sourceType: text("source_type", {
+			enum: [
+				"official_documentation",
+				"open_courseware",
+				"verified_tutorial",
+			],
+		}).notNull(),
+		level: text("level", {
+			enum: ["beginner", "intermediate", "advanced", "all"],
+		}).notNull(),
+		tags: jsonb("tags").$type<string[]>().default([]).notNull(),
+		description: text("description").notNull(),
+		isVerified: boolean("is_verified").default(false).notNull(),
+		isActive: boolean("is_active").default(true).notNull(),
+		verifiedAt: timestamp("verified_at"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [uniqueIndex("learning_source_url_idx").on(table.url)],
+);
 
 export const learningRoadmaps = pgTable(
 	"learning_roadmaps",

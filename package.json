@@ -35,7 +35,9 @@
     "db:push": "turbo -F @gemastik/db db:push",
     "db:studio": "turbo -F @gemastik/db db:studio",
     "db:generate": "turbo -F @gemastik/db db:generate",
-    "db:migrate": "turbo -F @gemastik/db db:migrate"
+    "db:migrate": "turbo -F @gemastik/db db:migrate",
+    "db:seed:sources": "bun run --cwd packages/db db:seed:sources",
+    "test:sources": "bun run --cwd packages/api test:sources"
   },
   "dependencies": {
     "@gemastik/env": "workspace:*",

@@ -64,7 +64,7 @@ Synara addresses these by combining a persistent roadmap, node-level lessons, co
    - preferred learning style.
 4. Synara generates a roadmap of up to five initial nodes.
 5. The learner opens a course workspace.
-6. Synara generates lesson content for a selected node on demand and persists it.
+6. Synara generates lesson-body content for a selected node, attaches matching verified database sources when available, and persists the assembled lesson.
 7. The learner studies the lesson and may ask the contextual tutor for help.
 8. The learner enters Socratic validation and explains or applies the concept.
 9. A competency score of at least 80 marks the node complete automatically.
@@ -121,11 +121,11 @@ For each roadmap node, the system should provide a compact lesson containing:
 - core concepts;
 - suggested steps;
 - exercises; and
-- resource suggestions.
+- curated external resources when verified database matches exist.
 
-Generated lesson content must be persisted so repeated visits do not require regeneration.
+Generated lesson content must be persisted so repeated visits do not require regeneration. Gemini must not supply learner-visible external URLs or source identity; these fields must come from verified, active database records. Zero matching sources is valid.
 
-**Current state:** Implemented through lazy generation.
+**Current state:** Implemented through lazy generation and deterministic curated-source attachment. The source seed is intentionally empty pending separate manual verification.
 
 ### FR-7 Contextual tutor
 
@@ -192,9 +192,9 @@ Database structures exist for artifact URLs, validation status, and AI critique.
 
 ### Curated external learning sources
 
-Current lesson resources are AI-generated descriptors and do not include a curated source database or verified external URLs.
+The application has a database-backed catalog, typed repeatable seed infrastructure, deterministic tag/title/level matching, legacy lesson normalization, and trusted-link rendering. Only verified and active entries are learner-visible; Gemini cannot control displayed URLs or providers.
 
-**Status:** Not implemented.
+**Status:** Implemented infrastructure. The catalog dataset is intentionally empty until real sources are manually researched and verified; automated ingestion, crawling, and curation UI are not implemented.
 
 ### Database Row Level Security
 
@@ -232,9 +232,8 @@ The current implementation satisfies items 1-8. See `IMPLEMENTATION_STATUS.md` f
 1. Can the legacy manual completion and reopen API mutations be removed after compatibility usage is confirmed?
 2. Should recalibration history eventually retain richer event-level evidence beyond the compact trigger snapshot?
 3. How should cognitive-profile data influence future roadmap generation once it is wired in?
-4. Should external learning resources be curated, retrieved from trusted providers, or remain AI-generated suggestions?
-5. What evidence is sufficient for micro-artifact validation, and which artifact types are supported?
-6. What telemetry is required to evaluate learning effectiveness without collecting unnecessary learner data?
+4. What evidence is sufficient for micro-artifact validation, and which artifact types are supported?
+5. What telemetry is required to evaluate learning effectiveness without collecting unnecessary learner data?
 
 ## 12. Non-Goals for the Current MVP
 

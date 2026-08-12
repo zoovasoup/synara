@@ -24,6 +24,7 @@ import {
   CircleCheckBigIcon,
   CircleDashedIcon,
   Clock3Icon,
+  ExternalLinkIcon,
   LockIcon,
   RefreshCwIcon,
   SendIcon,
@@ -37,14 +38,19 @@ type ChatMessage = {
 }
 
 type LessonContent = {
+  resourceModelVersion: 1
   summary: string
   concepts: string[]
   steps: string[]
   exercises: string[]
   resources: {
+    sourceId: string
     title: string
+    provider: string
+    url: string
+    sourceType: 'official_documentation' | 'open_courseware' | 'verified_tutorial'
+    level: 'beginner' | 'intermediate' | 'advanced' | 'all'
     description: string
-    type: 'reading' | 'video' | 'hands-on' | 'socratic'
   }[]
 }
 
@@ -91,9 +97,15 @@ function getDifficultyLabel(level: number) {
   return 'Advanced'
 }
 
-function getResourceLabel(type: LessonContent['resources'][number]['type']) {
-  if (type === 'hands-on') return 'Hands-on'
-  return type.charAt(0).toUpperCase() + type.slice(1)
+function getResourceTypeLabel(type: LessonContent['resources'][number]['sourceType']) {
+  if (type === 'official_documentation') return 'Official documentation'
+  if (type === 'open_courseware') return 'Open courseware'
+  return 'Verified tutorial'
+}
+
+function getResourceLevelLabel(level: LessonContent['resources'][number]['level']) {
+  if (level === 'all') return 'All levels'
+  return level.charAt(0).toUpperCase() + level.slice(1)
 }
 
 function getValidationPrompt(nodeTitle: string) {
@@ -557,17 +569,35 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
 
                   <div className='space-y-3'>
                     <h3 className='text-sm font-medium'>Resources</h3>
-                    <div className='space-y-2'>
-                      {lessonContentQuery.data?.lessonContent.resources.map((resource) => (
-                        <div key={`${resource.title}-${resource.type}`} className='border px-3 py-3'>
-                          <div className='flex items-center justify-between gap-3'>
-                            <p className='text-sm font-medium'>{resource.title}</p>
-                            <Badge variant='secondary'>{getResourceLabel(resource.type)}</Badge>
+                    {lessonContentQuery.data?.lessonContent.resources.length ? (
+                      <div className='space-y-2'>
+                        {lessonContentQuery.data.lessonContent.resources.map((resource) => (
+                          <div key={resource.sourceId} className='border px-3 py-3'>
+                            <div>
+                              <p className='text-sm font-medium'>{resource.title}</p>
+                              <p className='mt-1 text-xs text-muted-foreground'>
+                                {resource.provider} · {getResourceTypeLabel(resource.sourceType)} · {getResourceLevelLabel(resource.level)}
+                              </p>
+                            </div>
+                            <p className='mt-2 text-sm leading-6 text-muted-foreground'>{resource.description}</p>
+                            <a
+                              href={resource.url}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                              aria-label={`Open ${resource.title} in a new tab`}
+                            >
+                              Open resource
+                              <ExternalLinkIcon className='size-3.5' aria-hidden='true' />
+                            </a>
                           </div>
-                          <p className='mt-2 text-sm leading-6 text-muted-foreground'>{resource.description}</p>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='border border-dashed px-3 py-4 text-sm text-muted-foreground'>
+                        No curated external source is available for this step yet.
+                      </div>
+                    )}
                   </div>
                     </>
                   )

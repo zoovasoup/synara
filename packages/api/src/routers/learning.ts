@@ -28,6 +28,13 @@ import {
 	RecalibrationNotEligibleError,
 	runRecalibrationWorkflow,
 } from "../domain/recalibration";
+import {
+	buildCuratedLessonContent,
+	lessonBodySchema,
+	lessonContentSchema,
+	type LessonContent,
+} from "../domain/lesson-content";
+import { matchCuratedLearningSources } from "../services/learning-source.service";
 
 const contentTypeSchema = z.enum(["video", "reading", "hands-on", "socratic"]);
 
@@ -47,24 +54,9 @@ const generatedNodeSchema = z.object({
   success_criteria: z.array(z.string().trim().min(1)).min(1),
 });
 
-const lessonContentResourceSchema = z.object({
-	title: z.string().trim().min(1),
-	description: z.string().trim().min(1),
-	type: z.enum(["reading", "video", "hands-on", "socratic"]),
-});
-
-const lessonContentSchema = z.object({
-	summary: z.string().trim().min(1),
-	concepts: z.array(z.string().trim().min(1)).min(2),
-	steps: z.array(z.string().trim().min(1)).min(2),
-	exercises: z.array(z.string().trim().min(1)).min(1),
-	resources: z.array(lessonContentResourceSchema).min(1),
-});
-
 type OnboardingAnswers = z.infer<typeof onboardingAnswersSchema>;
 type GeneratedNode = z.infer<typeof generatedNodeSchema>;
 type RoadmapGenerationStatus = "generated" | "draft";
-type LessonContent = z.infer<typeof lessonContentSchema>;
 
 function buildGoalDescription(input: OnboardingAnswers) {
   return [
@@ -154,7 +146,7 @@ function buildLessonContentPrompt({
 	].join("\n");
 }
 
-async function generateLessonContent({
+async function generateLessonBody({
 	goalDescription,
 	node,
 }: {
@@ -171,7 +163,9 @@ async function generateLessonContent({
 		"You are a senior learning designer creating a compact but actionable lesson for one roadmap node.",
 		"Respond ONLY with valid JSON.",
 		"Schema:",
-		'{"summary":"string","concepts":["string"],"steps":["string"],"exercises":["string"],"resources":[{"title":"string","description":"string","type":"reading|video|hands-on|socratic"}]}',
+		'{"summary":"string","concepts":["string"],"steps":["string"],"exercises":["string"]}',
+		"Do not generate external URLs, provider names, course titles, documentation titles, or resource recommendations.",
+		"Trusted external resources are selected separately by the server from a verified database catalog.",
 		"Keep the lesson grounded in the node context and success criteria.",
 		"Do not include markdown fences.",
 	].join(" ");
@@ -181,7 +175,7 @@ async function generateLessonContent({
 		systemInstruction,
 	);
 
-	return lessonContentSchema.parse(lesson);
+	return lessonBodySchema.parse(lesson);
 }
 
 async function ensureLessonContent({
@@ -190,7 +184,13 @@ async function ensureLessonContent({
 	node,
 }: {
 	ctx: { db: typeof import("@gemastik/db").db; user: { id: string } };
-	roadmap: { goalDescription: string };
+	roadmap: {
+		id: string;
+		goalDescription: string;
+		metadata: {
+			onboarding?: { topic: string; level: string };
+		} | null;
+	};
 	node: {
 		id: string;
 		title: string;
@@ -198,22 +198,46 @@ async function ensureLessonContent({
 		difficultyLevel: number;
 		estimatedTime: number;
 		successCriteria: string[];
-		lessonContent: LessonContent | null;
+		lessonContent: unknown;
 	};
 }) {
-	if (node.lessonContent) {
-		return node.lessonContent;
+	const currentLessonContent = lessonContentSchema.safeParse(node.lessonContent);
+	const legacyLessonBody = lessonBodySchema.safeParse(node.lessonContent);
+	const [lessonBody, resources] = await Promise.all([
+		legacyLessonBody.success
+			? Promise.resolve(legacyLessonBody.data)
+			: generateLessonBody({
+					goalDescription: roadmap.goalDescription,
+					node,
+				}),
+		matchCuratedLearningSources({
+			db: ctx.db,
+			context: {
+				topic: roadmap.metadata?.onboarding?.topic,
+				nodeTitle: node.title,
+				learnerLevel: roadmap.metadata?.onboarding?.level,
+				goalDescription: roadmap.goalDescription,
+			},
+		}),
+	]);
+	const lessonContent = buildCuratedLessonContent({ lessonBody, resources });
+	if (
+		currentLessonContent.success &&
+		JSON.stringify(currentLessonContent.data) === JSON.stringify(lessonContent)
+	) {
+		return currentLessonContent.data;
 	}
-
-	const lessonContent = await generateLessonContent({
-		goalDescription: roadmap.goalDescription,
-		node,
-	});
 
 	await ctx.db
 		.update(roadmapNodes)
 		.set({ lessonContent })
-		.where(eq(roadmapNodes.id, node.id));
+		.where(
+			and(
+				eq(roadmapNodes.id, node.id),
+				eq(roadmapNodes.roadmapId, roadmap.id),
+				eq(roadmapNodes.userId, ctx.user.id),
+			),
+		);
 
 	return lessonContent;
 }
@@ -643,7 +667,7 @@ export const learningRouter = createTRPCRouter({
 				roadmap,
 				node: {
 					...node,
-					lessonContent: node.lessonContent as LessonContent | null,
+					lessonContent: node.lessonContent,
 				},
 			});
 
@@ -689,7 +713,7 @@ export const learningRouter = createTRPCRouter({
 				roadmap,
 				node: {
 					...node,
-					lessonContent: node.lessonContent as LessonContent | null,
+					lessonContent: node.lessonContent,
 				},
 			});
 
