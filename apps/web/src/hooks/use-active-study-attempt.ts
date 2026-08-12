@@ -24,12 +24,42 @@ function createAttemptState(nodeId: string | null): AttemptState {
   }
 }
 
+function restoreAttemptState(nodeId: string | null, persistenceKey?: string) {
+  if (!nodeId || !persistenceKey) return createAttemptState(nodeId)
+
+  try {
+    const value = window.sessionStorage.getItem(persistenceKey)
+    if (!value) return createAttemptState(nodeId)
+    const stored = JSON.parse(value) as Partial<AttemptState>
+    if (
+      stored.nodeId !== nodeId ||
+      typeof stored.attemptId !== 'string' ||
+      typeof stored.elapsedMilliseconds !== 'number' ||
+      typeof stored.backtrackCount !== 'number'
+    ) {
+      return createAttemptState(nodeId)
+    }
+
+    return {
+      nodeId,
+      attemptId: stored.attemptId,
+      elapsedMilliseconds: stored.elapsedMilliseconds,
+      startedAt: null,
+      backtrackCount: stored.backtrackCount,
+    }
+  } catch {
+    return createAttemptState(nodeId)
+  }
+}
+
 export function useActiveStudyAttempt({
   nodeId,
   isTracking,
+  persistenceKey,
 }: {
   nodeId: string | null
   isTracking: boolean
+  persistenceKey?: string
 }) {
   const attemptRef = React.useRef<AttemptState>({
     nodeId: null,
@@ -39,6 +69,14 @@ export function useActiveStudyAttempt({
     backtrackCount: 0,
   })
 
+  const persist = React.useCallback(() => {
+    if (!persistenceKey || !attemptRef.current.nodeId) return
+    window.sessionStorage.setItem(
+      persistenceKey,
+      JSON.stringify({ ...attemptRef.current, startedAt: null } satisfies AttemptState),
+    )
+  }, [persistenceKey])
+
   const pause = React.useCallback(() => {
     const attempt = attemptRef.current
     if (attempt.startedAt === null) {
@@ -47,12 +85,13 @@ export function useActiveStudyAttempt({
 
     attempt.elapsedMilliseconds += performance.now() - attempt.startedAt
     attempt.startedAt = null
-  }, [])
+    persist()
+  }, [persist])
 
   React.useEffect(() => {
     if (attemptRef.current.nodeId !== nodeId) {
       pause()
-      attemptRef.current = createAttemptState(nodeId)
+      attemptRef.current = restoreAttemptState(nodeId, persistenceKey)
     }
 
     const syncTrackingState = () => {
@@ -75,7 +114,7 @@ export function useActiveStudyAttempt({
       document.removeEventListener('visibilitychange', syncTrackingState)
       pause()
     }
-  }, [isTracking, nodeId, pause])
+  }, [isTracking, nodeId, pause, persistenceKey])
 
   const recordBacktrack = React.useCallback(() => {
     if (!nodeId || attemptRef.current.nodeId !== nodeId) {
@@ -83,7 +122,8 @@ export function useActiveStudyAttempt({
     }
 
     attemptRef.current.backtrackCount += 1
-  }, [nodeId])
+    persist()
+  }, [nodeId, persist])
 
   const getSnapshot = React.useCallback(() => {
     if (!nodeId || attemptRef.current.nodeId !== nodeId) {
@@ -104,11 +144,17 @@ export function useActiveStudyAttempt({
 
   const completeAttempt = React.useCallback(() => {
     attemptRef.current = createAttemptState(nodeId)
+    persist()
 
     if (nodeId && isTracking && document.visibilityState === 'visible') {
       attemptRef.current.startedAt = performance.now()
     }
-  }, [isTracking, nodeId])
+  }, [isTracking, nodeId, persist])
 
-  return { completeAttempt, getSnapshot, recordBacktrack }
+  const clearAttempt = React.useCallback(() => {
+    if (persistenceKey) window.sessionStorage.removeItem(persistenceKey)
+    attemptRef.current = createAttemptState(null)
+  }, [persistenceKey])
+
+  return { clearAttempt, completeAttempt, getSnapshot, recordBacktrack }
 }

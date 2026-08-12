@@ -38,7 +38,7 @@ The audit was performed against the implementation state on `master` immediately
 | Stagnation Score | Implemented | Deterministic score uses Socratic failures, time ratios, Tutor learner turns, backtracks, and effort 1-9 | Quiz and hint signals are not implemented. |
 | Recalibration trigger | Implemented | Two Socratic failures, two consecutive time ratios >2.0, or Stagnation Score >=70 marks the roadmap `needs_recalibration` after a failed attempt | Passing mastery on the same attempt takes precedence; recalibration execution remains separate. |
 | Backend recalibration mutation | Implemented | Explicit status claim, bounded AI context, validated 3-5 node output, and transactional unfinished-path replacement | Completed nodes and stable roadmap metadata are preserved. |
-| Learner-facing recalibration execution | Implemented | A failed validation hard trigger automatically invokes `learning.recalibrate`, refreshes course/dashboard state, and selects the new current node | Pending, success, recoverable error, and retry states are present. |
+| Learner-facing recalibration execution | Implemented | A failed validation hard trigger automatically invokes `learning.recalibrate`, refreshes course/dashboard state, and returns the learner to the adapted roadmap | Pending, success, recoverable error, and retry states are present. |
 | Recalibration history | Implemented | One compact log per successful recalibration stores trigger snapshot and old/replacement node titles | No full prompt/response blobs or analytics UI. |
 | Manual node completion | Deprecated learner flow | `finishNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | The retained mutation also rejects future locked nodes. |
 | Reopen completed node | Deprecated learner flow | `reopenNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | Completed nodes remain readable and tutor-accessible without reopening. |
@@ -60,14 +60,15 @@ Sign up / sign in
   -> Dashboard
   -> Create course
   -> Gemini roadmap generation
-  -> Open course
-  -> Open the first incomplete/current node
+  -> Open course roadmap
+  -> Enter the dedicated page for the first incomplete/current node
   -> Lazy lesson-body generation + deterministic curated-source attachment + persistence
   -> Ask contextual tutor questions
   -> Enter Socratic validation
   -> Reach competency >= 80
   -> Node completes
-  -> Dashboard/course progress updates
+  -> See the completed state and return to the roadmap
+  -> Next incomplete node is visibly current
 ```
 
 This is the current demo-ready core.
@@ -86,7 +87,7 @@ Socratic validation
   -> preserve completed nodes
   -> transactionally replace incomplete nodes and write recalibration log
   -> mark roadmap active
-  -> refresh course and select the new current node
+  -> refresh course and return to the roadmap showing the new current node
 ```
 
 ## Product / Implementation Contradictions

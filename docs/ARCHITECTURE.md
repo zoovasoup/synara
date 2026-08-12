@@ -74,7 +74,8 @@ synara/
 - `/login` — sign-in page
 - `/signup` — registration page
 - `/dashboard` — authenticated learner dashboard
-- `/dashboard/courses/[id]` — course workspace
+- `/dashboard/courses/[id]` — interactive course roadmap
+- `/dashboard/courses/[id]/nodes/[nodeId]` — dedicated node lesson workspace
 - `/dashboard/settings` — settings page
 - `/api/auth/[...all]` — Better Auth handler
 - `/api/trpc/[trpc]` — tRPC handler
@@ -83,21 +84,16 @@ synara/
 
 - `create-course-dialog.tsx` — three-stage presentation of five onboarding answers and the course creation mutation
 - `course-card.tsx` — focused dashboard course summary and continuation affordance
-- `course-workspace.tsx` — course/server-state orchestration, Tutor, Socratic validation, and adaptive UI state
-- `course-workspace-sections.tsx` — presentational roadmap sequence and lesson/article surfaces
+- `course-roadmap.tsx` — course overview, progress, and interactive linear roadmap
+- `node-learning-workspace.tsx` — node lesson/server-state orchestration, Tutor, Socratic validation, telemetry, and adaptive UI state
+- `course-workspace-sections.tsx` — shared lesson/article surface and node content types
 - `app-sidebar.tsx` and navigation components — authenticated app shell
 
-The course workspace is a lesson-dominant three-area composition on large screens:
+The course and node experiences are separate routes. The course page presents the ordered roadmap as the primary interaction; current and completed nodes link to dedicated node routes, while locked nodes remain non-interactive. The node page contains a centered editorial lesson and no permanent roadmap. Tutor and Validation open contextually in a Sheet.
 
-1. roadmap node list;
-2. selected node lesson content; and
-3. coach panel containing Tutor and Validation tabs.
+`use-active-study-attempt.ts` measures a lightweight current-node attempt window after lesson content is available. It pauses while the document is hidden, during validation network wait, or on completed-node review pages. A small session-scoped navigation marker records the route sequence current lesson -> roadmap -> earlier completed lesson -> resumed current lesson as one backtrack; elapsed/backtrack deltas plus effort 1-9 are submitted with Socratic validation.
 
-At narrower widths these areas stack so roadmap and coach remain fully available without squeezing three columns into the viewport. Roadmap, lesson, and coach use focused scroll surfaces on desktop-height layouts.
-
-`use-active-study-attempt.ts` measures a lightweight current-node attempt window after lesson content is available. It pauses while the document is hidden, during validation network wait, or while a completed node is being reviewed. The workspace increments a backtrack only when navigation leaves the current node for an earlier completed node and submits elapsed/backtrack deltas plus effort 1-9 with Socratic validation.
-
-When validation returns `recalibrationRequired`, the workspace uses a single-flight orchestration helper to invoke `learning.recalibrate` once, refresh course/list/dashboard queries, and select the returned replacement current node. The validation UI exposes pending and recoverable retry states without displaying raw stagnation telemetry.
+When validation returns `recalibrationRequired`, the node workspace uses a single-flight orchestration helper to invoke `learning.recalibrate` once, refresh course/list/dashboard queries, and return to the course roadmap. The validation UI exposes pending and recoverable retry states without displaying raw stagnation telemetry.
 
 ## 5. API Layer
 
@@ -430,7 +426,7 @@ See `STYLE_GUIDE.md` for implementation conventions.
 6. Several historical names remain in package names/prompts (`gemastik`, `Gradio`).
 7. Recalibration recovery handles normal request/provider/database failures, but no lease timeout recovers a process terminated after claiming `recalibrating`.
 8. The curated-source catalog infrastructure is connected, but its seed dataset is intentionally empty pending manual research and verification; there is no crawler, broken-link checker, or curation UI.
-9. The workspace container still owns intertwined learning-query and mutation orchestration; roadmap and lesson presentation are extracted, while further splitting should preserve the current single source of server state.
+9. The node workspace intentionally retains its related lesson, Tutor, validation, telemetry, and recalibration query/mutation orchestration in one route-level client container; further extraction should preserve the current single source of server state.
 
 ## 17. Change Safety
 

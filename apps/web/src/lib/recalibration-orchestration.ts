@@ -12,11 +12,13 @@ export async function runRecalibrationOrchestration({
   recalibrate,
   refresh,
   selectCurrentNode,
+  onComplete,
 }: {
   inFlight: InFlightRecalibration
   recalibrate: () => Promise<RecalibrationResult>
   refresh: () => Promise<void>
-  selectCurrentNode: (nodeId: string) => void
+  selectCurrentNode?: (nodeId: string) => void
+  onComplete?: (result: RecalibrationResult) => void | Promise<void>
 }) {
   if (inFlight.current) {
     return await inFlight.current
@@ -25,7 +27,8 @@ export async function runRecalibrationOrchestration({
   const operation = (async () => {
     const result = await recalibrate()
     await refresh()
-    selectCurrentNode(result.currentNodeId)
+    selectCurrentNode?.(result.currentNodeId)
+    await onComplete?.(result)
     return result
   })()
 

@@ -36,4 +36,26 @@ assertEqual(refreshCalls, 1, "Recalibration K single refresh");
 assertEqual(selectedNodeIds, ["replacement-1"], "Recalibration K selection");
 assertEqual(firstResult, duplicateResult, "Recalibration K shared result");
 
+let roadmapRefreshCalls = 0;
+const destinations: string[] = [];
+await runRecalibrationOrchestration({
+	inFlight: { current: null },
+	recalibrate: async () => ({
+		currentNodeId: "replacement-2",
+		replacementCount: 3,
+	}),
+	refresh: async () => {
+		roadmapRefreshCalls += 1;
+	},
+	onComplete: () => {
+		destinations.push("/dashboard/courses/course-1");
+	},
+});
+assertEqual(roadmapRefreshCalls, 1, "Recalibration route refresh");
+assertEqual(
+	destinations,
+	["/dashboard/courses/course-1"],
+	"Recalibration returns to roadmap after refresh",
+);
+
 console.log("Recalibration UI orchestration check passed (Scenario K).")

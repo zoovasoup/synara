@@ -181,6 +181,25 @@ function compactTopic(value: string) {
 	return cleaned.slice(0, 72) || "the learning goal";
 }
 
+function normalizeMockRecalibrationConcept(value: string) {
+	let concept = compactTopic(value);
+	let previous = "";
+
+	while (concept !== previous) {
+		previous = concept;
+		concept = concept
+			.replace(
+				/\s*:\s*(?:prerequisite foundation|guided practice|applied practice|foundations)\s*$/i,
+				"",
+			)
+			.replace(/^guided\s+(.+)\s+practice$/i, "$1")
+			.replace(/^applying\s+(.+)$/i, "$1")
+			.trim();
+	}
+
+	return concept.slice(0, 64) || "the challenging concept";
+}
+
 function extractLine(prompt: string, label: string) {
 	const line = prompt
 		.split("\n")
@@ -274,24 +293,25 @@ function createMockStructuredOutput(prompt: string, systemInstruction = "") {
 		} catch {
 			// Keep the bounded fallback title.
 		}
+		const baseConcept = normalizeMockRecalibrationConcept(problematicTitle);
 		return {
 			nodes: [
 				{
-					title: `${problematicTitle}: Prerequisite Foundation`,
+					title: `${baseConcept}: Foundations`,
 					difficulty_level: 2,
 					estimated_time: 15,
 					content_type: "reading",
 					success_criteria: ["Explain the prerequisite idea", "Identify the missing connection"],
 				},
 				{
-					title: `${problematicTitle}: Guided Practice`,
+					title: `Guided ${baseConcept} Practice`,
 					difficulty_level: 3,
 					estimated_time: 20,
 					content_type: "hands-on",
 					success_criteria: ["Complete the guided example", "Explain each step in the example"],
 				},
 				{
-					title: `${problematicTitle}: Applied Practice`,
+					title: `Applying ${baseConcept}`,
 					difficulty_level: 4,
 					estimated_time: 25,
 					content_type: "socratic",

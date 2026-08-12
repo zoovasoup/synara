@@ -180,6 +180,30 @@ assertEqual(
 	"AI G replacement problem context",
 );
 
+const repeatedRecalibration = recalibrationSchema.parse(
+	await mockAi.generateStructuredOutput(
+		JSON.stringify({
+			originalLearningGoal: "Learn accessible interface design",
+			problematicNode: { title: recalibration.nodes[0]?.title },
+		}),
+		"Generate a replacement path of 3-5 nodes for the unfinished portion.",
+	),
+);
+assertEqual(
+	repeatedRecalibration.nodes.map((node) => node.title),
+	recalibration.nodes.map((node) => node.title),
+	"AI G repeated recalibration keeps bounded titles",
+);
+assertEqual(
+	repeatedRecalibration.nodes.some((node) =>
+		/(Foundations.*Foundations|Guided Practice.*Guided Practice|Applied Practice.*Applied Practice)/i.test(
+			node.title,
+		),
+	),
+	false,
+	"AI G repeated recalibration avoids recursive suffixes",
+);
+
 assertEqual(geminiCallCount, 0, "AI H Gemini provider isolation");
 
 console.log("AI mock checks passed (AI A-H).")

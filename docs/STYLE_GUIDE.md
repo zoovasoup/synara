@@ -388,29 +388,17 @@ all at once.
 
 ---
 
-## 8. Course Workspace Pattern
+## 8. Course and Node Workspace Pattern
 
-The default course workspace uses progressive disclosure so the learner sees the path and lesson before support controls.
+Navigation and learning should not compete for attention. The learner selects a step from the roadmap, then enters a dedicated learning context.
 
-### Desktop Hierarchy
+### Course Overview
 
-Conceptually:
+The course page is roadmap-first. Its primary visual element is an interactive, honest representation of the linear `orderIndex` path.
 
-Roadmap navigation | Primary lesson workspace
+The course overview should show concise goal, pace, progress, and connected completed/current/locked nodes. It must not embed the full lesson or permanent support controls.
 
-Recommended proportions:
-
-- roadmap:
-  a restrained 220-260px supporting column;
-
-- lesson:
-  the remaining width and dominant reading/work area.
-
-The lesson must receive the most visual weight.
-
-Tutor and Socratic Validation are contextual support surfaces opened intentionally from lesson actions. They must not permanently consume a third desktop column.
-
-### Roadmap Panel
+### Interactive Roadmap
 
 Show:
 
@@ -422,7 +410,11 @@ Show:
 
 Do not overload each roadmap row with all available metadata.
 
-### Lesson Surface
+The roadmap may use a vertical or gently alternating connected path on desktop and a vertical connected path on mobile. It must not imply branches or dependency relationships that the product does not implement.
+
+### Node Workspace
+
+The node route is a dedicated lesson-first page. Do not keep a permanent roadmap sidebar beside the lesson. Provide a clear Back to roadmap action, then center the lesson in a focused reading column.
 
 Lesson content should feel closer to an editorial reading surface than a dashboard card stack.
 
@@ -451,7 +443,7 @@ Validation:
 
 "Check whether I am ready to continue."
 
-On tablet and mobile, the roadmap also moves into an on-demand navigation surface when a permanent column would make the lesson cramped. No learning capability may disappear at narrow widths.
+Tutor and Validation remain available from lesson actions on every viewport. They do not appear as permanent columns or compete with lesson consumption.
 
 ### Validation Results
 

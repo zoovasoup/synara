@@ -6,7 +6,7 @@ Use this file as the compact technical context for coding-agent work in this rep
 
 Synara is an AI-assisted adaptive learning workspace. A learner creates a course from a learning goal, receives an AI-generated roadmap, studies generated node lessons, asks a contextual tutor for help, and validates understanding through Socratic dialogue.
 
-The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and automatically invokes the existing recalibration mutation from the learner workspace. Recalibration preserves completed work, transactionally replaces the unfinished path, records a compact history log, and selects the new current node. Lazy lesson generation also attaches deterministic snapshots from a manually verified PostgreSQL learning-source catalog; Gemini generates the lesson body but never supplies learner-visible external source identity or URLs.
+The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and automatically invokes the existing recalibration mutation from the learner workspace. Recalibration preserves completed work, transactionally replaces the unfinished path, records a compact history log, and returns the learner to the refreshed roadmap where the new current node is visible. Lazy lesson generation also attaches deterministic snapshots from a manually verified PostgreSQL learning-source catalog; Gemini generates the lesson body but never supplies learner-visible external source identity or URLs.
 
 ## 2. Read Order
 
@@ -205,7 +205,7 @@ The canonical product name is **Synara**, but code/package names such as `@gemas
 - Support light/dark theme tokens.
 - Prefer semantic theme classes over hard-coded colors.
 - Course creation groups the five persisted onboarding answers into three visual stages, using a bottom drawer on mobile and right drawer on larger screens.
-- Course workspace defaults to a narrow roadmap plus a dominant lesson surface; Tutor and Validation open on demand in a contextual Sheet, and the roadmap also moves to a Sheet on narrow screens.
+- `/dashboard/courses/[courseId]` is a roadmap-first course overview; `/dashboard/courses/[courseId]/nodes/[nodeId]` is the dedicated lesson workspace. Tutor and Validation open on demand in a contextual Sheet.
 
 See `STYLE_GUIDE.md` before visual changes.
 

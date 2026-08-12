@@ -1,14 +1,11 @@
 import { Badge } from '@gemastik/ui/components/badge'
 import { Button, buttonVariants } from '@gemastik/ui/components/button'
-import { ScrollArea } from '@gemastik/ui/components/scroll-area'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { cn } from '@gemastik/ui/lib/utils'
 import {
   BookOpenIcon,
-  CheckIcon,
   CircleCheckBigIcon,
   ExternalLinkIcon,
-  LockIcon,
   MessageCircleQuestionIcon,
 } from 'lucide-react'
 
@@ -64,90 +61,6 @@ function getResourceLevelLabel(level: LessonContent['resources'][number]['level'
   return level.charAt(0).toUpperCase() + level.slice(1)
 }
 
-export function RoadmapNavigation({
-  nodes,
-  selectedNodeId,
-  onSelect,
-  className,
-  headingId = 'roadmap-heading',
-}: {
-  nodes: CourseNode[]
-  selectedNodeId: string | null
-  onSelect: (node: CourseNode) => void
-  className?: string
-  headingId?: string
-}) {
-  return (
-    <aside className={cn('flex min-h-0 flex-col bg-muted/20 lg:h-full', className)} aria-labelledby={headingId}>
-      <header className='flex shrink-0 flex-col gap-1 border-b px-4 py-3'>
-        <h2 id={headingId} className='text-sm font-semibold'>Learning path</h2>
-        <p className='text-xs leading-5 text-muted-foreground'>Your ordered route through this course.</p>
-      </header>
-      <ScrollArea className='h-72 min-h-0 lg:h-full lg:flex-1'>
-        {nodes.length === 0 ? (
-          <div className='m-4 rounded-md border border-dashed p-4 text-sm leading-6 text-muted-foreground'>
-            This course is saved as a draft. Return later when its roadmap is ready.
-          </div>
-        ) : (
-          <ol className='px-2 py-2' aria-label='Ordered roadmap steps'>
-            {nodes.map((node, index) => {
-              const isCurrent = node.progressionState === 'current'
-              const isLocked = node.progressionState === 'locked'
-              const isSelected = node.id === selectedNodeId
-
-              return (
-                <li key={node.id} className='relative grid grid-cols-[1.75rem_minmax(0,1fr)] pb-1 last:pb-0'>
-                  {index < nodes.length - 1 ? (
-                    <span className='absolute bottom-0 left-3.5 top-7 w-px bg-border/70' aria-hidden='true' />
-                  ) : null}
-                  <span
-                    className={cn(
-                      'relative z-[1] mt-2 flex size-7 items-center justify-center rounded-full border bg-background',
-                      isCurrent && 'border-primary bg-primary text-primary-foreground shadow-sm',
-                      node.progressionState === 'completed' && 'border-primary/35 text-primary',
-                      isLocked && 'border-border/70 text-muted-foreground',
-                    )}
-                    aria-hidden='true'
-                  >
-                    {node.progressionState === 'completed' ? (
-                      <CheckIcon className='size-3.5' />
-                    ) : isCurrent ? (
-                      <span className='size-2 rounded-full bg-primary-foreground' />
-                    ) : (
-                      <LockIcon className='size-3' />
-                    )}
-                  </span>
-                  <button
-                    type='button'
-                    onClick={() => onSelect(node)}
-                    disabled={isLocked}
-                    aria-current={isCurrent ? 'step' : undefined}
-                    aria-label={`Step ${index + 1}: ${node.title}. ${node.progressionState}.`}
-                    title={isLocked ? 'Complete the previous step first.' : undefined}
-                    className={cn(
-                      'ml-1.5 flex min-w-0 items-start gap-2 rounded-md px-2 py-2 text-left transition-[background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      node.progressionState === 'completed' && 'text-muted-foreground hover:bg-background/70',
-                      isCurrent && 'bg-primary/10 text-foreground',
-                      isLocked && 'cursor-not-allowed text-muted-foreground opacity-60',
-                      isSelected && !isCurrent && 'bg-background/80 shadow-sm',
-                    )}
-                  >
-                    <span className='pt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground'>{String(index + 1).padStart(2, '0')}</span>
-                    <span className='flex min-w-0 flex-1 flex-col gap-1'>
-                      <span className={cn('break-words text-sm font-medium leading-5', !isLocked && 'text-foreground')}>{node.title}</span>
-                      {isCurrent ? <span className='text-[11px] font-medium text-primary'>Current</span> : null}
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-          </ol>
-        )}
-      </ScrollArea>
-    </aside>
-  )
-}
-
 export function LessonSurface({
   selectedNode,
   nodeCount,
@@ -181,25 +94,27 @@ export function LessonSurface({
 
   return (
     <article className='flex min-h-0 min-w-0 flex-col bg-card lg:h-full' aria-labelledby='lesson-heading'>
-      <header className='flex shrink-0 flex-col gap-3 border-b px-5 py-4 md:px-7'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <p className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>
-            Step {selectedNode.orderIndex + 1} of {nodeCount}
-          </p>
-          {selectedNode.isCompleted ? <Badge variant='secondary'>Completed</Badge> : null}
-        </div>
-        <div className='flex max-w-3xl flex-col gap-1.5'>
-          <h2 id='lesson-heading' className='text-xl font-semibold leading-tight tracking-tight text-pretty md:text-2xl'>{selectedNode.title}</h2>
-          <p className='text-sm leading-6 text-foreground/75'>
-            {selectedNode.successCriteria[0] ?? 'Build enough understanding to explain and apply this step.'}
-          </p>
-        </div>
-        <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground'>
-          <span>{getDifficultyLabel(selectedNode.difficultyLevel)}</span>
-          <span aria-hidden='true'>·</span>
-          <span>~{selectedNode.estimatedTime} min</span>
-          <span aria-hidden='true'>·</span>
-          <span>{selectedNode.contentType}</span>
+      <header className='shrink-0 border-b px-5 py-5 md:px-8'>
+        <div className='mx-auto flex w-full max-w-3xl flex-col gap-3'>
+          <div className='flex flex-wrap items-center justify-between gap-3'>
+            <p className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>
+              Step {selectedNode.orderIndex + 1} of {nodeCount}
+            </p>
+            {selectedNode.isCompleted ? <Badge variant='secondary'>Completed</Badge> : null}
+          </div>
+          <div className='flex flex-col gap-1.5'>
+            <h2 id='lesson-heading' className='text-xl font-semibold leading-tight tracking-tight text-pretty md:text-2xl'>{selectedNode.title}</h2>
+            <p className='text-sm leading-6 text-foreground/75'>
+              {selectedNode.successCriteria[0] ?? 'Build enough understanding to explain and apply this step.'}
+            </p>
+          </div>
+          <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground'>
+            <span>{getDifficultyLabel(selectedNode.difficultyLevel)}</span>
+            <span aria-hidden='true'>·</span>
+            <span>~{selectedNode.estimatedTime} min</span>
+            <span aria-hidden='true'>·</span>
+            <span>{selectedNode.contentType}</span>
+          </div>
         </div>
       </header>
 
