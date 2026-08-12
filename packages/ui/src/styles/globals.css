@@ -57,11 +57,12 @@
   --shadow-lg: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 4px 6px -1px hsl(0 0% 0% / 0.16);
   --shadow-xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 8px 10px -1px hsl(0 0% 0% / 0.16);
   --shadow-2xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.4);
-  --tracking-normal: -0.025em;
+  --tracking-normal: 0em;
   --spacing: 0.28rem;
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.2223 0.006 271.1393);
   --foreground: oklch(0.9551 0 0);
   --card: oklch(0.2568 0.0076 274.6528);
@@ -181,5 +182,6 @@
   body {
     @apply bg-background font-sans text-foreground;
     letter-spacing: var(--tracking-normal);
+    line-height: 1.5;
   }
 }

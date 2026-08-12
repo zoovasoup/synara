@@ -205,7 +205,7 @@ The canonical product name is **Synara**, but code/package names such as `@gemas
 - Support light/dark theme tokens.
 - Prefer semantic theme classes over hard-coded colors.
 - Course creation groups the five persisted onboarding answers into three visual stages, using a bottom drawer on mobile and right drawer on larger screens.
-- Course workspace uses a lesson-dominant three-area layout on large screens and a readable stacked layout at narrower widths.
+- Course workspace defaults to a narrow roadmap plus a dominant lesson surface; Tutor and Validation open on demand in a contextual Sheet, and the roadmap also moves to a Sheet on narrow screens.
 
 See `STYLE_GUIDE.md` before visual changes.
 

@@ -21,6 +21,13 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@gemastik/ui/compo
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@gemastik/ui/components/field'
 import { Input } from '@gemastik/ui/components/input'
 import { ScrollArea } from '@gemastik/ui/components/scroll-area'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@gemastik/ui/components/sheet'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@gemastik/ui/components/tabs'
 import { cn } from '@gemastik/ui/lib/utils'
@@ -29,6 +36,7 @@ import {
   ArrowLeftIcon,
   CircleCheckBigIcon,
   Clock3Icon,
+  ListTreeIcon,
   LoaderCircleIcon,
   RefreshCwIcon,
   SendIcon,
@@ -63,6 +71,16 @@ function getValidationPrompt(nodeTitle: string) {
   return `Explain ${nodeTitle} in your own words, describe how you would apply it, or answer the Validator's follow-up questions.`
 }
 
+function getCourseGoalSummary(topic: string | undefined, goal: string | undefined, fallback: string) {
+  if (!topic || !goal) return fallback.split(/(?<=[.!?])\s/)[0] ?? fallback
+
+  if (goal === 'To build a project') return `Build a practical project in ${topic}.`
+  if (goal === 'For school') return `Build a strong foundation in ${topic}.`
+  if (goal === 'For work') return `Apply ${topic} with confidence at work.`
+  if (goal === 'For personal interest') return `Explore ${topic} through a structured path.`
+  return `Build practical confidence in ${topic}.`
+}
+
 function MessageThread({
   messages,
   emptyMessage,
@@ -82,7 +100,7 @@ function MessageThread({
                 'max-w-[92%] whitespace-pre-wrap break-words rounded-md px-3 py-2 text-sm leading-6',
                 message.role === 'user'
                   ? 'bg-primary text-primary-foreground'
-                  : 'border bg-background text-foreground',
+                  : 'bg-muted/60 text-foreground',
               )}
             >
               {message.content}
@@ -111,7 +129,8 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const [draftTutorMessage, setDraftTutorMessage] = React.useState('')
   const [draftValidationMessage, setDraftValidationMessage] = React.useState('')
   const [mentalEffort, setMentalEffort] = React.useState(5)
-  const [activeTab, setActiveTab] = React.useState<'tutor' | 'validation'>('tutor')
+  const [supportMode, setSupportMode] = React.useState<'tutor' | 'validation' | null>(null)
+  const [roadmapOpen, setRoadmapOpen] = React.useState(false)
   const [recalibrationError, setRecalibrationError] = React.useState<string | null>(null)
   const [recalibrationSucceeded, setRecalibrationSucceeded] = React.useState(false)
   const recalibrationInFlight = React.useRef<Promise<RecalibrationResult> | null>(null)
@@ -197,6 +216,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       })
 
       setRecalibrationSucceeded(true)
+      setSupportMode(null)
       toast.success('Your learning path was adjusted.', {
         description: 'We added a more guided route before you continue.',
       })
@@ -225,15 +245,14 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
 
   if (courseQuery.isPending) {
     return (
-      <div className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 lg:px-6'>
+      <div className='flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-3 lg:px-5'>
         <div className='flex flex-col gap-2' role='status' aria-live='polite'>
           <p className='text-sm font-medium'>Preparing your learning workspace…</p>
           <Skeleton className='h-8 w-64' />
         </div>
-        <div className='grid gap-4 xl:grid-cols-[minmax(14rem,0.22fr)_minmax(30rem,0.55fr)_minmax(18rem,0.25fr)]'>
-          <Skeleton className='h-72 w-full xl:h-[36rem]' />
-          <Skeleton className='h-[36rem] w-full' />
-          <Skeleton className='h-[32rem] w-full xl:h-[36rem]' />
+        <div className='grid min-h-0 flex-1 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-[15rem_minmax(0,1fr)]'>
+          <Skeleton className='hidden h-full w-full rounded-none lg:block' />
+          <Skeleton className='min-h-72 w-full rounded-none' />
         </div>
       </div>
     )
@@ -279,6 +298,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
     }
 
     setSelectedNodeId(node.id)
+    setRoadmapOpen(false)
   }
 
   const handleSendTutorMessage = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -334,6 +354,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       await refreshCourseData()
       if (result.competency_score >= 80) {
         if (result.nextNodeId) setSelectedNodeId(result.nextNodeId)
+        setSupportMode(null)
         toast.success('Ready to continue', {
           description: result.roadmapCompleted
             ? 'All roadmap steps are now complete.'
@@ -357,22 +378,27 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       : recalibrationSucceeded
         ? 'success'
         : null
+  const courseSummary = getCourseGoalSummary(onboarding?.topic, onboarding?.goal, course.goalDescription)
+  const coursePace = [
+    onboarding?.level,
+    onboarding?.weeklyHours ? `${onboarding.weeklyHours.replace('-', '–')}/week` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
-    <div className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 lg:px-6 xl:overflow-hidden'>
-      <header className='flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
-        <div className='flex min-w-0 flex-col gap-2'>
+    <div className='flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 sm:px-4 lg:overflow-hidden lg:px-5'>
+      <header className='flex shrink-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between'>
+        <div className='flex min-w-0 flex-col gap-1.5'>
           <Link href='/dashboard' className='inline-flex w-fit items-center gap-2 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'>
             <ArrowLeftIcon className='size-4' aria-hidden='true' />
             Back to dashboard
           </Link>
           <div className='min-w-0'>
-            <p className='text-xs font-medium uppercase tracking-widest text-muted-foreground'>Course workspace</p>
-            <h1 className='mt-1 break-words text-2xl font-semibold tracking-tight text-pretty'>{onboarding?.topic ?? course.goalDescription}</h1>
-            <p className='mt-1 line-clamp-2 max-w-3xl break-words text-sm leading-6 text-muted-foreground'>{course.goalDescription}</p>
+            <h1 className='break-words text-xl font-semibold tracking-tight text-pretty md:text-2xl'>{onboarding?.topic ?? course.goalDescription}</h1>
+            <p className='mt-0.5 line-clamp-1 max-w-3xl break-words text-sm leading-5 text-foreground/75'>{courseSummary}</p>
+            {coursePace ? <p className='mt-1 text-xs text-muted-foreground'>{coursePace}</p> : null}
           </div>
         </div>
-        <div className='flex w-full max-w-sm flex-col gap-2'>
+        <div className='flex w-full max-w-xs flex-col gap-1.5'>
           <div className='flex items-center justify-between gap-3 text-xs'>
             <span className='font-medium'>{progress}% complete</span>
             <span className='tabular-nums text-muted-foreground'>{completedCount} of {course.nodes.length} steps</span>
@@ -383,11 +409,35 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
         </div>
       </header>
 
+      <div className='flex shrink-0 lg:hidden'>
+        <Button type='button' variant='outline' onClick={() => setRoadmapOpen(true)} className='w-full justify-start'>
+          <ListTreeIcon data-icon='inline-start' aria-hidden='true' />
+          Learning path
+          {currentNode ? <span className='ml-auto truncate text-muted-foreground'>Step {currentNode.orderIndex + 1}</span> : null}
+        </Button>
+      </div>
+
+      <Sheet open={roadmapOpen} onOpenChange={setRoadmapOpen}>
+        <SheetContent side='left' className='w-[min(21rem,90vw)] p-0 sm:max-w-sm'>
+          <SheetHeader className='sr-only'>
+            <SheetTitle>Learning path</SheetTitle>
+            <SheetDescription>Select a completed or current roadmap step.</SheetDescription>
+          </SheetHeader>
+          <RoadmapNavigation
+            className='h-full bg-popover pt-10'
+            headingId='mobile-roadmap-heading'
+            nodes={course.nodes}
+            selectedNodeId={selectedNode?.id ?? null}
+            onSelect={handleSelectNode}
+          />
+        </SheetContent>
+      </Sheet>
+
       {adaptiveState ? (
         <div
           role={adaptiveState === 'error' ? 'alert' : 'status'}
           aria-live='polite'
-          className='flex shrink-0 flex-col gap-3 rounded-md border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between'
+          className='flex shrink-0 flex-col gap-3 rounded-md bg-muted/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between'
         >
           <div className='flex items-start gap-3'>
             {adaptiveState === 'pending' ? <LoaderCircleIcon className='mt-0.5 size-4 animate-spin text-primary' aria-hidden='true' /> : null}
@@ -417,8 +467,8 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
         </div>
       ) : null}
 
-      <div className='grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(14rem,0.22fr)_minmax(30rem,0.55fr)_minmax(18rem,0.25fr)] xl:overflow-hidden'>
-        <RoadmapNavigation nodes={course.nodes} selectedNodeId={selectedNode?.id ?? null} onSelect={handleSelectNode} />
+      <div className='grid min-h-0 flex-none overflow-visible rounded-lg border bg-border lg:flex-1 lg:grid-cols-[15rem_minmax(0,1fr)] lg:overflow-hidden'>
+        <RoadmapNavigation className='hidden border-r lg:flex' nodes={course.nodes} selectedNodeId={selectedNode?.id ?? null} onSelect={handleSelectNode} />
 
         <LessonSurface
           selectedNode={selectedNode}
@@ -426,18 +476,22 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
           lessonContent={lessonContentQuery.data?.lessonContent}
           isPending={lessonContentQuery.isPending}
           errorMessage={lessonContentQuery.isError ? 'The lesson could not be prepared right now.' : null}
-          onOpenValidation={() => setActiveTab('validation')}
+          onOpenTutor={() => setSupportMode('tutor')}
+          onOpenValidation={() => setSupportMode('validation')}
           validationDisabled={roadmapStatus !== 'active' || recalibration.isPending || Boolean(recalibrationError)}
         />
 
-        <aside className='flex min-h-[34rem] min-w-0 flex-col overflow-hidden rounded-lg border bg-muted/20 xl:h-full xl:min-h-0' aria-labelledby='coach-heading'>
-          <header className='flex flex-col gap-1 border-b px-4 py-4'>
-            <h2 id='coach-heading' className='text-sm font-semibold'>Learning coach</h2>
-            <p className='text-xs leading-5 text-muted-foreground'>Get help while studying, then validate when you are ready.</p>
-          </header>
+        <Sheet open={supportMode !== null} onOpenChange={(open) => !open && setSupportMode(null)}>
+          <SheetContent side='right' className='w-full p-0 sm:max-w-md md:max-w-[30rem]'>
+          <SheetHeader className='shrink-0 border-b px-5 py-4 pr-12'>
+            <SheetTitle>{supportMode === 'validation' ? 'Check your understanding' : 'Tutor'}</SheetTitle>
+            <SheetDescription>
+              {supportMode === 'validation' ? 'Explain the idea in your own words when you are ready to continue.' : 'Help me understand this step.'}
+            </SheetDescription>
+          </SheetHeader>
           <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as 'tutor' | 'validation')}
+            value={supportMode ?? 'tutor'}
+            onValueChange={(value) => setSupportMode(value as 'tutor' | 'validation')}
             className='flex min-h-0 flex-1 flex-col gap-0'
           >
             <TabsList className='m-4 mb-0 grid w-[calc(100%-2rem)] grid-cols-2'>
@@ -445,12 +499,32 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
               <TabsTrigger value='validation'>Validation</TabsTrigger>
             </TabsList>
 
-            <TabsContent value='tutor' className='flex min-h-0 flex-1 flex-col pt-3'>
-              <div className='px-4 pb-3'>
-                <p className='text-sm font-medium'>Help me understand</p>
-                <p className='mt-1 text-xs leading-5 text-muted-foreground'>Ask for an explanation, example, or a simpler next step.</p>
+            {adaptiveState ? (
+              <div
+                role={adaptiveState === 'error' ? 'alert' : 'status'}
+                aria-live='polite'
+                className='mx-4 mt-3 flex items-start gap-2 rounded-md bg-muted/60 p-3'
+              >
+                {adaptiveState === 'pending' ? <LoaderCircleIcon className='mt-0.5 size-4 shrink-0 animate-spin text-primary' aria-hidden='true' /> : null}
+                <div className='min-w-0'>
+                  <p className='text-sm font-medium'>
+                    {adaptiveState === 'pending'
+                      ? 'Adjusting your learning path…'
+                      : adaptiveState === 'success'
+                        ? 'Your learning path was adjusted.'
+                        : "We couldn't adjust the learning path yet."}
+                  </p>
+                  {adaptiveState === 'error' ? (
+                    <Button type='button' variant='link' size='sm' className='mt-1 h-auto px-0' onClick={() => void adjustLearningPath()}>
+                      Try again
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              <ScrollArea className='h-80 min-h-0 flex-1 xl:h-auto'>
+            ) : null}
+
+            <TabsContent value='tutor' className='flex min-h-0 flex-1 flex-col pt-3'>
+              <ScrollArea className='min-h-0 flex-1'>
                 <div className='px-4 pb-3 pr-6'>
                   {tutorSessionQuery.isError ? (
                     <p role='alert' className='rounded-md border border-destructive/40 p-3 text-sm leading-6 text-muted-foreground'>
@@ -497,11 +571,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
             </TabsContent>
 
             <TabsContent value='validation' className='flex min-h-0 flex-1 flex-col pt-3'>
-              <div className='px-4 pb-3'>
-                <p className='text-sm font-medium'>Check whether I am ready to continue</p>
-                <p className='mt-1 text-xs leading-5 text-muted-foreground'>Explain the idea in your own words. The Validator, not the Tutor, checks mastery.</p>
-              </div>
-              <ScrollArea className='h-80 min-h-0 flex-1 xl:h-auto'>
+              <ScrollArea className='min-h-0 flex-1'>
                 <div className='flex flex-col gap-4 px-4 pb-3 pr-6'>
                   <p className='rounded-md bg-background p-3 text-sm leading-6 text-muted-foreground'>
                     {selectedNode ? getValidationPrompt(selectedNode.title) : 'Choose a roadmap step to begin Socratic Validation.'}
@@ -586,7 +656,8 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
               </form>
             </TabsContent>
           </Tabs>
-        </aside>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   )

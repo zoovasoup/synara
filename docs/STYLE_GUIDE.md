@@ -196,6 +196,9 @@ For lesson content:
 
 - body size approximately 14-16px;
 - comfortable line-height around 1.55-1.7;
+- normal body and control copy uses natural letter spacing around `0em`;
+- slight negative tracking is reserved for headings and applied locally;
+- uppercase eyebrow labels may use modest positive tracking;
 - avoid overly wide text columns;
 - maintain clear heading hierarchy.
 
@@ -387,26 +390,25 @@ all at once.
 
 ## 8. Course Workspace Pattern
 
-The course workspace should preserve three concepts without giving them equal visual priority.
+The default course workspace uses progressive disclosure so the learner sees the path and lesson before support controls.
 
 ### Desktop Hierarchy
 
 Conceptually:
 
-Roadmap navigation | Primary lesson workspace | Contextual coach
+Roadmap navigation | Primary lesson workspace
 
 Recommended proportions:
 
 - roadmap:
-  narrow supporting column;
+  a restrained 220-260px supporting column;
 
 - lesson:
-  dominant reading and work area;
-
-- coach:
-  secondary contextual panel.
+  the remaining width and dominant reading/work area.
 
 The lesson must receive the most visual weight.
+
+Tutor and Socratic Validation are contextual support surfaces opened intentionally from lesson actions. They must not permanently consume a third desktop column.
 
 ### Roadmap Panel
 
@@ -435,9 +437,11 @@ Recommended sections:
 
 Avoid placing every concept or sentence in its own bordered rectangle.
 
-### Coach Panel
+### Contextual Support
 
-Tutor and Socratic Validation may share one panel, but their roles must be visibly distinct.
+Assistance uses progressive disclosure. The lesson remains the default center of attention; Tutor and Validation appear in an accessible Sheet, Drawer, or equivalent surface only when intentionally requested.
+
+If Tutor and Validation share a support surface, their roles must remain visibly distinct.
 
 Tutor:
 
@@ -447,9 +451,7 @@ Validation:
 
 "Check whether I am ready to continue."
 
-On medium screens, the coach may collapse into a drawer or sheet.
-
-On mobile, tutor and validation should become tabs or full-width states.
+On tablet and mobile, the roadmap also moves into an on-demand navigation surface when a permanent column would make the lesson cramped. No learning capability may disappear at narrow widths.
 
 ### Validation Results
 
@@ -770,6 +772,8 @@ Avoid:
 - dense KPI grids on learner pages;
 - card-inside-card visual fragmentation;
 - giving roadmap, lesson, tutor, and validation equal visual weight;
+- permanently showing Tutor or Validation controls beside the lesson before the learner requests support;
+- globally compressing normal body copy with negative letter spacing;
 - exposing raw sentiment, stumble, or stagnation telemetry as primary learner feedback;
 - unlocked future nodes when prerequisites are part of the learning contract;
 - decorative AI gradients;
