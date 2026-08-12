@@ -12,7 +12,10 @@ import { socraticSessions } from "@gemastik/db/schema/validation";
 import { eq as drizzleEq, and as drizzleAnd } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getProgressionAfterCompletion } from "../domain/node-progression";
-import { getAccessibleRoadmapNode } from "../services/node-access.service";
+import {
+	assertRoadmapAllowsMastery,
+	getAccessibleRoadmapNode,
+} from "../services/node-access.service";
 import {
 	calculateStagnationScore,
 	calculateTimeRatio,
@@ -115,6 +118,7 @@ export const validationRouter = createTRPCRouter({
 					stagnation: storedStagnation,
 				};
 			}
+			assertRoadmapAllowsMastery(roadmap.currentStatus);
 
 			if (
 				!shouldRecordAdaptiveAttempt({
@@ -274,6 +278,7 @@ export const validationRouter = createTRPCRouter({
 								...(roadmap.metadata ?? {}),
 								reason: undefined,
 								lastNode: undefined,
+								triggerNodeId: undefined,
 							},
 						})
 						.where(
@@ -293,6 +298,7 @@ export const validationRouter = createTRPCRouter({
 								...(roadmap.metadata ?? {}),
 								reason: "stagnation_score",
 								lastNode: node.title,
+								triggerNodeId: node.id,
 							},
 						})
 						.where(

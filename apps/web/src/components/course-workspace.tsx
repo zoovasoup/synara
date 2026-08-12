@@ -6,6 +6,7 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import Link from 'next/link'
 
 import { useActiveStudyAttempt } from '@/hooks/use-active-study-attempt'
+import { runRecalibrationOrchestration, type RecalibrationResult } from '@/lib/recalibration-orchestration'
 import { useTRPC } from '@/utils/trpc'
 import { Badge } from '@gemastik/ui/components/badge'
 import { Button } from '@gemastik/ui/components/button'
@@ -24,6 +25,7 @@ import {
   CircleDashedIcon,
   Clock3Icon,
   LockIcon,
+  RefreshCwIcon,
   SendIcon,
   SparklesIcon,
 } from 'lucide-react'
@@ -62,7 +64,7 @@ type CourseNode = {
 type CourseDetail = {
   id: string
   goalDescription: string
-  currentStatus: string | null
+  currentStatus: 'active' | 'completed' | 'recalibrating' | 'needs_recalibration' | null
   metadata: {
     onboarding?: {
       topic: string
@@ -106,6 +108,9 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const [draftValidationMessage, setDraftValidationMessage] = React.useState('')
   const [mentalEffort, setMentalEffort] = React.useState(5)
   const [activeTab, setActiveTab] = React.useState<'tutor' | 'validation'>('tutor')
+  const [recalibrationError, setRecalibrationError] = React.useState<string | null>(null)
+  const recalibrationInFlight = React.useRef<Promise<RecalibrationResult> | null>(null)
+  const automaticRecalibrationStarted = React.useRef(false)
 
   const courseQuery = useQuery(trpc.learning.getById.queryOptions({ id: courseId })) as UseQueryResult<CourseDetail, Error>
 
@@ -132,6 +137,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
     courseQuery.data?.nodes.find((node) => node.progressionState === 'completed') ??
     null
   const currentNode = courseQuery.data?.nodes.find((node) => node.progressionState === 'current') ?? null
+  const roadmapStatus = courseQuery.data?.currentStatus ?? 'active'
 
   const lessonContentQuery = useQuery({
     ...trpc.learning.getNodeContent.queryOptions(selectedNode ? { roadmapId: courseId, nodeId: selectedNode.id } : skipToken),
@@ -150,6 +156,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
 
   const tutorChat = useMutation(trpc.learning.askTutor.mutationOptions())
   const validationChat = useMutation(trpc.validation.submitSocratic.mutationOptions())
+  const recalibration = useMutation(trpc.learning.recalibrate.mutationOptions())
   const activeStudyAttempt = useActiveStudyAttempt({
     nodeId: currentNode?.id ?? null,
     isTracking: Boolean(
@@ -157,13 +164,66 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       selectedNode?.id === currentNode.id &&
       lessonContentQuery.isSuccess &&
       lessonContentQuery.data?.nodeId === currentNode.id &&
-      !validationChat.isPending,
+      !validationChat.isPending &&
+      roadmapStatus === 'active' &&
+      !recalibration.isPending &&
+      !recalibrationError,
     ),
   })
 
   React.useEffect(() => {
     setMentalEffort(5)
   }, [currentNode?.id])
+
+  const refreshCourseData = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.learning.getById.queryKey({ id: courseId }) }),
+      queryClient.invalidateQueries({ queryKey: trpc.learning.list.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.learning.getDashboard.queryKey() }),
+    ])
+  }, [courseId, queryClient, trpc])
+
+  const adjustLearningPath = React.useCallback(async () => {
+    setRecalibrationError(null)
+
+    try {
+      const result = await runRecalibrationOrchestration({
+        inFlight: recalibrationInFlight,
+        recalibrate: async () =>
+          await recalibration.mutateAsync({ roadmapId: courseId }),
+        refresh: refreshCourseData,
+        selectCurrentNode: setSelectedNodeId,
+      })
+
+      toast.success('Your learning path was adjusted.', {
+        description: 'We added a more guided route before you continue.',
+      })
+
+      return result
+    } catch {
+      const message = "We couldn't adjust the learning path yet. Try again."
+      setRecalibrationError(message)
+      await refreshCourseData().catch(() => undefined)
+      toast.error(message)
+      return null
+    }
+  }, [courseId, recalibration, refreshCourseData])
+
+  React.useEffect(() => {
+    if (roadmapStatus === 'active') {
+      automaticRecalibrationStarted.current = false
+      return
+    }
+
+    if (
+      roadmapStatus === 'needs_recalibration' &&
+      !recalibrationError &&
+      !automaticRecalibrationStarted.current
+    ) {
+      automaticRecalibrationStarted.current = true
+      void adjustLearningPath()
+    }
+  }, [adjustLearningPath, recalibrationError, roadmapStatus])
 
   if (courseQuery.isPending) {
     return (
@@ -201,6 +261,10 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const progress = course.nodes.length > 0 ? Math.round((completedCount / course.nodes.length) * 100) : 0
   const tutorMessages = tutorSessionQuery.data ?? []
   const validationMessages = socraticSessionQuery.data?.chatHistory ?? []
+  const currentNodeWritesPaused = Boolean(
+    !selectedNode?.isCompleted &&
+    (recalibration.isPending || roadmapStatus === 'recalibrating'),
+  )
 
   const handleSelectNode = (node: CourseNode) => {
     if (
@@ -215,15 +279,10 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
     setSelectedNodeId(node.id)
   }
 
-  const refreshCourseData = async () => {
-    await queryClient.invalidateQueries({ queryKey: trpc.learning.getById.queryKey({ id: courseId }) })
-    await queryClient.invalidateQueries({ queryKey: trpc.learning.list.queryKey() })
-  }
-
   const handleSendTutorMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (!selectedNode || tutorChat.isPending) {
+    if (!selectedNode || tutorChat.isPending || currentNodeWritesPaused) {
       return
     }
 
@@ -252,7 +311,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const handleSendValidationMessage = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (!selectedNode || validationChat.isPending) {
+    if (!selectedNode || validationChat.isPending || recalibration.isPending || recalibrationError || roadmapStatus !== 'active') {
       return
     }
 
@@ -275,10 +334,15 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       activeStudyAttempt.completeAttempt()
       setMentalEffort(5)
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: trpc.validation.getSocraticSession.queryKey({ nodeId: selectedNode.id }) }),
-        refreshCourseData(),
-      ])
+      await queryClient.invalidateQueries({ queryKey: trpc.validation.getSocraticSession.queryKey({ nodeId: selectedNode.id }) })
+
+      if (result.recalibrationRequired) {
+        toast.message("This step is taking more effort than expected. We're adjusting the next part of your learning path.")
+        await adjustLearningPath()
+        return
+      }
+
+      await refreshCourseData()
 
       if (result.competency_score >= 80) {
         if (result.nextNodeId) {
@@ -293,12 +357,6 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       } else {
         toast.message('Validation submitted', {
           description: 'Keep going until your Socratic score reaches the passing threshold.',
-        })
-      }
-
-      if (result.recalibrationRequired) {
-        toast.warning('Your learning path needs adjustment', {
-          description: 'This step is taking more effort than expected.',
         })
       }
     } catch (error) {
@@ -578,7 +636,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                     value={draftTutorMessage}
                     onChange={(event) => setDraftTutorMessage(event.target.value)}
                     placeholder={selectedNode ? `Ask about ${selectedNode.title}...` : 'Select a roadmap node first'}
-                    disabled={!selectedNode || tutorChat.isPending}
+                    disabled={!selectedNode || tutorChat.isPending || currentNodeWritesPaused}
                     className='min-h-28 w-full resize-y rounded-none border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring disabled:cursor-not-allowed disabled:opacity-50'
                   />
                   <div className='flex items-center justify-between gap-3 text-xs text-muted-foreground'>
@@ -586,7 +644,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                       <Clock3Icon className='size-4' />
                       <span>{selectedNode ? `${selectedNode.estimatedTime} minute study block` : 'No active node selected'}</span>
                     </div>
-                    <Button type='submit' disabled={!selectedNode || !draftTutorMessage.trim() || tutorChat.isPending}>
+                    <Button type='submit' disabled={!selectedNode || !draftTutorMessage.trim() || tutorChat.isPending || currentNodeWritesPaused}>
                       <SendIcon className='size-4' />
                       Send
                     </Button>
@@ -640,6 +698,19 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                 </ScrollArea>
 
                 <form onSubmit={handleSendValidationMessage} className='mt-4 flex flex-col gap-3 border-t px-6 pb-6 pt-4'>
+                  {recalibration.isPending || roadmapStatus === 'recalibrating' ? (
+                    <p role='status' className='text-sm text-muted-foreground'>Adjusting your learning path...</p>
+                  ) : recalibrationError || roadmapStatus === 'needs_recalibration' ? (
+                    <div className='flex flex-col items-start gap-2'>
+                      <p role='alert' className='text-sm text-muted-foreground'>
+                        {recalibrationError ?? "This step needs a more guided route before you continue."}
+                      </p>
+                      <Button type='button' variant='outline' onClick={() => void adjustLearningPath()} disabled={recalibration.isPending}>
+                        <RefreshCwIcon data-icon='inline-start' />
+                        Try again
+                      </Button>
+                    </div>
+                  ) : null}
                   <label htmlFor='validation-message' className='text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground'>
                     Respond for validation
                   </label>
@@ -648,7 +719,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                     value={draftValidationMessage}
                     onChange={(event) => setDraftValidationMessage(event.target.value)}
                     placeholder={selectedNode ? `Explain ${selectedNode.title} in your own words...` : 'Select a roadmap node first'}
-                    disabled={!selectedNode || validationChat.isPending || selectedNode?.isCompleted}
+                    disabled={!selectedNode || validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active' || selectedNode?.isCompleted}
                     className='min-h-28 w-full resize-y rounded-none border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring disabled:cursor-not-allowed disabled:opacity-50'
                   />
                   {selectedNode && !selectedNode.isCompleted ? (
@@ -666,7 +737,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                           step={1}
                           value={mentalEffort}
                           onChange={(event) => setMentalEffort(Number(event.target.value))}
-                          disabled={validationChat.isPending}
+                          disabled={validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active'}
                           aria-valuetext={`${mentalEffort} out of 9`}
                         />
                         <FieldDescription className='flex justify-between gap-3'>
@@ -682,7 +753,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                         ? 'This step is already mastered. Review the lesson or ask the tutor any time.'
                         : 'A score of 80 or above finishes the selected step.'}
                     </span>
-                    <Button type='submit' disabled={!selectedNode || !draftValidationMessage.trim() || validationChat.isPending || selectedNode?.isCompleted}>
+                    <Button type='submit' disabled={!selectedNode || !draftValidationMessage.trim() || validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active' || selectedNode?.isCompleted}>
                       <CircleCheckBigIcon data-icon='inline-start' />
                       Validate
                     </Button>

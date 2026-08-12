@@ -1,9 +1,27 @@
 import { aiService } from "./ai.service";
 
-interface RecalibrateInput {
+export interface RecalibrateInput {
 	goal: string;
-	failedNodeTitle: string | undefined;
-	context: string;
+	problematicNode: {
+		title: string;
+		difficultyLevel: number;
+		successCriteria: string[];
+	};
+	learnerLevel?: string;
+	completedNodeTitles: string[];
+	recentSocraticMessages: {
+		role: "user" | "assistant";
+		content: string;
+	}[];
+	triggerReasons: string[];
+	interventionLevel: string;
+	behavioralSummary: {
+		socraticFailureCount: number;
+		repeatedExcessiveTimeRatio: boolean;
+		highEffort: boolean;
+		tutorHeavy: boolean;
+		backtracking: boolean;
+	};
 }
 
 export const roadmapService = {
@@ -61,27 +79,39 @@ export const roadmapService = {
 
 	async recalibrateRoadmap({
 		goal,
-		failedNodeTitle,
-		context,
+		problematicNode,
+		learnerLevel,
+		completedNodeTitles,
+		recentSocraticMessages,
+		triggerReasons,
+		interventionLevel,
+		behavioralSummary,
 	}: RecalibrateInput) {
-		const systemInstruction = `
-    You are the Gradio Adaptive Engine. A student is STUCK on their goal: "${goal}".
-    Failed Node: "${failedNodeTitle}".
-    Failure History: ${context}.
+		const systemInstruction = [
+			"You are Synara's adaptive curriculum engine.",
+			"Generate a replacement path of 3-5 nodes for the unfinished portion of an existing linear roadmap.",
+			"Preserve the learner's original goal and do not regenerate already completed material.",
+			"Repair prerequisite gaps, reduce conceptual jumps, and prefer smaller guided steps around the problematic concept.",
+			"Every success criterion must be explicit and testable.",
+			"Respond ONLY with valid JSON and no markdown fences.",
+			'Output schema: {"nodes":[{"title":"string","difficulty_level":1,"estimated_time":20,"content_type":"video|reading|hands-on|socratic","success_criteria":["string"]}]}',
+		].join(" ");
 
-    Your Task:
-    1. Analyze why they failed based on the chat history.
-    2. Generate a REPLACEMENT path (3-5 nodes) that is more accessible.
-    3. If they lacked prerequisites, insert a bridging concept node.
-    4. Output ONLY raw JSON: { "nodes": [...] }
+		const prompt = JSON.stringify({
+			originalLearningGoal: goal,
+			learnerLevel: learnerLevel ?? "Not provided",
+			problematicNode,
+			completedNodeTitles,
+			recentSocraticMessages,
+			stagnation: {
+				triggerReasons,
+				interventionLevel,
+				behavioralSummary,
+			},
+		});
 
-    Strict Enum for content_type: ["video", "reading", "hands-on", "socratic"].
-    Nodes must follow the standard structure: title, difficulty_level, estimated_time, content_type, success_criteria.
-  `;
-
-		// Asumsi lo udah punya method generateStructuredOutput yang manggil Gemini
 		return await aiService.generateStructuredOutput(
-			"Generate adapted nodes to bypass the current learning roadblock.",
+			prompt,
 			systemInstruction,
 		);
 	},

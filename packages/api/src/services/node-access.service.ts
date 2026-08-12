@@ -7,6 +7,35 @@ import { getNodeProgressionState } from "../domain/node-progression";
 
 export const LOCKED_NODE_MESSAGE =
 	"This step is locked. Complete the previous step first.";
+export const RECALIBRATION_PENDING_MESSAGE =
+	"Your learning path must be adjusted before mastery can continue.";
+
+export function assertRoadmapAllowsMastery(currentStatus: string | null) {
+	if (
+		currentStatus === "needs_recalibration" ||
+		currentStatus === "recalibrating"
+	) {
+		throw new TRPCError({
+			code: "CONFLICT",
+			message: RECALIBRATION_PENDING_MESSAGE,
+		});
+	}
+}
+
+export function assertRoadmapAllowsIncompleteNodeActivity({
+	currentStatus,
+	isCompleted,
+}: {
+	currentStatus: string | null;
+	isCompleted: boolean;
+}) {
+	if (currentStatus === "recalibrating" && !isCompleted) {
+		throw new TRPCError({
+			code: "CONFLICT",
+			message: "Your learning path is being adjusted. Try again shortly.",
+		});
+	}
+}
 
 type NodeAccessContext = {
 	db: typeof import("@gemastik/db").db;

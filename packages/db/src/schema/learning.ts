@@ -48,6 +48,9 @@ export const learningRoadmaps = pgTable(
 			aiContext?: string;
 			reason?: string;
 			lastNode?: string;
+			triggerNodeId?: string;
+			lastRecalibrationAt?: string;
+			lastRecalibrationLogId?: string;
 			generationStatus?: "generated" | "draft";
 		}>(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -57,6 +60,36 @@ export const learningRoadmaps = pgTable(
 			.notNull(),
 	},
 	(table) => [index("roadmap_userId_idx").on(table.userId)],
+);
+
+export const recalibrationLogs = pgTable(
+	"recalibration_logs",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		roadmapId: text("roadmap_id")
+			.notNull()
+			.references(() => learningRoadmaps.id, { onDelete: "cascade" }),
+		triggerNodeTitle: text("trigger_node_title").notNull(),
+		stagnationScore: integer("stagnation_score").notNull(),
+		interventionLevel: text("intervention_level", {
+			enum: ["none", "light_support", "remediation", "recalibration"],
+		}).notNull(),
+		triggerReasons: jsonb("trigger_reasons").$type<string[]>().notNull(),
+		previousNodeTitles: jsonb("previous_node_titles")
+			.$type<string[]>()
+			.notNull(),
+		replacementNodeTitles: jsonb("replacement_node_titles")
+			.$type<string[]>()
+			.notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		index("recalibration_log_user_idx").on(table.userId),
+		index("recalibration_log_roadmap_idx").on(table.roadmapId),
+	],
 );
 
 export const roadmapNodes = pgTable(

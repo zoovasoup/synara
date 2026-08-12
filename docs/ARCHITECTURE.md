@@ -93,6 +93,8 @@ The course workspace is currently a three-column composition on large screens:
 
 `use-active-study-attempt.ts` measures a lightweight current-node attempt window after lesson content is available. It pauses while the document is hidden, during validation network wait, or while a completed node is being reviewed. The workspace increments a backtrack only when navigation leaves the current node for an earlier completed node and submits elapsed/backtrack deltas plus effort 1-9 with Socratic validation.
 
+When validation returns `recalibrationRequired`, the workspace uses a single-flight orchestration helper to invoke `learning.recalibrate` once, refresh course/list/dashboard queries, and select the returned replacement current node. The validation UI exposes pending and recoverable retry states without displaying raw stagnation telemetry.
+
 ## 5. API Layer
 
 All core learning procedures are protected by tRPC authentication middleware. The middleware requires `ctx.session.user` and injects the authenticated user and shared database instance into protected procedures.
@@ -186,11 +188,7 @@ The API router normalizes alternate AI content type values such as `text`, `doc`
 
 ### Recalibration generation
 
-Input includes:
-
-- original goal;
-- failed node title; and
-- failure-context conversation history.
+Input includes the original goal, completed-node titles, learner level when available, the problematic node snapshot, the latest bounded Socratic context, deterministic trigger reasons/level, and a compact behavioral summary.
 
 The service asks Gemini to generate a replacement path that is easier or includes missing prerequisite bridges.
 
@@ -272,20 +270,17 @@ Stumble and sentiment remain session telemetry. They no longer determine recalib
 
 ## 11. Recalibration Flow
 
-The backend recalibration mutation:
+The adaptive state machine is:
 
-1. requires roadmap status `needs_recalibration`;
-2. loads the failed node from roadmap metadata;
-3. reads failure context from the Socratic session;
-4. generates replacement nodes through `roadmapService.recalibrateRoadmap`;
-5. deletes all incomplete nodes;
-6. preserves completed nodes;
-7. inserts replacement nodes after the completed-node count; and
-8. returns the roadmap to `active`.
+```text
+active -> needs_recalibration -> recalibrating -> active
+                                      |
+                                      +-- handled failure -> needs_recalibration
+```
 
-### Current limitation
+`learning.recalibrate` atomically claims only an owned `needs_recalibration` roadmap. It then loads bounded trigger context and asks the existing `roadmapService.recalibrateRoadmap` engine for 3-5 replacement nodes. AI generation and Zod validation happen before deletion. A short database transaction locks/rechecks the roadmap, preserves completed nodes and their order, deletes incomplete nodes, inserts the replacement path, writes one recalibration log, preserves stable metadata, and returns the roadmap to `active`.
 
-The course workspace currently warns the learner when recalibration is required but does not call `learning.recalibrate`. Therefore this flow is backend-complete but not end-to-end complete.
+Duplicate calls cannot claim an already `recalibrating` or `active` roadmap. Handled generation or transaction failures restore `needs_recalibration`; transactional rollback keeps the old unfinished path and prevents a false success log.
 
 ## 12. Database Model
 
@@ -349,6 +344,12 @@ No active API business logic currently reads or updates this table.
 
 One aggregate row per learner + node stores cumulative active study seconds, Socratic failure count, recorded time ratios, cumulative backtracks, latest effort score, latest Stagnation Score/level, trigger reasons, and an idempotent last-attempt identifier. Legacy stumble and sentiment columns remain telemetry. Tutor turns are derived from `tutor_sessions.chat_history` at validation time.
 
+Logs for deleted incomplete nodes cascade during successful recalibration. Their meaningful trigger summary is copied first into the same transaction's `recalibration_logs` record.
+
+### `recalibration_logs`
+
+Stores learner/roadmap ownership, trigger node title, Stagnation Score and intervention level, trigger reasons, old unfinished node titles, replacement node titles, and creation time. It deliberately snapshots the trigger title rather than referencing a node that will be deleted.
+
 ### `micro_artifacts`
 
 Schema exists for artifact URL, verification status, and AI critique. No current API/UI workflow uses it.
@@ -407,13 +408,13 @@ See `STYLE_GUIDE.md` for implementation conventions.
 
 ## 16. Known Architectural Gaps
 
-1. Recalibration is not invoked from the learner UI.
-2. Cognitive profiles are not wired into generation or recalibration.
-3. Quiz and hint signals are not part of the current Stagnation Score.
-4. Micro-artifact validation is schema-only.
-5. RLS is documented historically but not evidenced in repository migrations/policies.
-6. Legacy manual completion/reopen API mutations remain for compatibility but are not exposed by the learner workspace.
-7. Several historical names remain in package names/prompts (`gemastik`, `Gradio`).
+1. Cognitive profiles are not wired into generation or recalibration.
+2. Quiz and hint signals are not part of the current Stagnation Score.
+3. Micro-artifact validation is schema-only.
+4. RLS is documented historically but not evidenced in repository migrations/policies.
+5. Legacy manual completion/reopen API mutations remain for compatibility but are not exposed by the learner workspace.
+6. Several historical names remain in package names/prompts (`gemastik`, `Gradio`).
+7. Recalibration recovery handles normal request/provider/database failures, but no lease timeout recovers a process terminated after claiming `recalibrating`.
 8. `course-workspace.tsx` is large and currently combines data orchestration and multiple UI concerns; future refactoring may improve maintainability, but functionality should take priority over cosmetic decomposition.
 
 ## 17. Change Safety

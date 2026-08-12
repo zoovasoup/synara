@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 
-import { learningRoadmaps, roadmapNodes, tutorSessions } from "@gemastik/db/schema/learning";
+import {
+	learningRoadmaps,
+	recalibrationLogs,
+	roadmapNodes,
+	tutorSessions,
+} from "@gemastik/db/schema/learning";
+import { learningLogs } from "@gemastik/db/schema/profile";
 import { socraticSessions } from "@gemastik/db/schema/validation";
 import { nanoid } from "nanoid";
 
@@ -9,7 +16,18 @@ import { aiService } from "../services/ai.service";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { roadmapService } from "../services/roadmap.service";
 import { deriveNodeProgression } from "../domain/node-progression";
-import { getAccessibleRoadmapNode } from "../services/node-access.service";
+import {
+	assertRoadmapAllowsIncompleteNodeActivity,
+	assertRoadmapAllowsMastery,
+	getAccessibleRoadmapNode,
+} from "../services/node-access.service";
+import {
+	buildRecalibratedMetadata,
+	findRecalibrationTriggerNode,
+	getReplacementStartIndex,
+	RecalibrationNotEligibleError,
+	runRecalibrationWorkflow,
+} from "../domain/recalibration";
 
 const contentTypeSchema = z.enum(["video", "reading", "hands-on", "socratic"]);
 
@@ -320,71 +338,279 @@ export const learningRouter = createTRPCRouter({
 	recalibrate: protectedProcedure
 		.input(z.object({ roadmapId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			// 1. Ambil data roadmap dan node yang belum selesai
-			const roadmap = await ctx.db.query.learningRoadmaps.findFirst({
-				where: and(
-					eq(learningRoadmaps.id, input.roadmapId),
-					eq(learningRoadmaps.userId, ctx.user.id),
-				),
-				with: {
-					nodes: true,
-				},
-			});
-
-			if (!roadmap || roadmap.currentStatus !== "needs_recalibration") {
-				throw new Error(
-					"Roadmap tidak ditemukan atau tidak dalam status butuh rekalibrasi.",
-				);
-			}
-
-			// 2. Ambil konteks kegagalan (lastNode dari metadata)
-			const failedNodeTitle = (roadmap.metadata as any)?.lastNode;
-			const failedNode = roadmap.nodes.find((n) => n.title === failedNodeTitle);
-
-			let failureContext = "";
-			if (failedNode) {
-				const session = await ctx.db.query.socraticSessions.findFirst({
-					where: eq(socraticSessions.nodeId, failedNode.id),
-				});
-				failureContext = JSON.stringify(session?.chatHistory ?? []);
-			}
-
-			// 3. Sintesis jalur alternatif via roadmapService
-			const recalibratedRoadmap = await roadmapService.recalibrateRoadmap({
-				goal: roadmap.goalDescription,
-				failedNodeTitle: failedNodeTitle,
-				context: failureContext,
-			});
-			const adaptedNodes = z.array(generatedNodeSchema).min(1).max(5).parse(recalibratedRoadmap.nodes);
-
-			// 4. Transaction: Replace incomplete nodes
-			return await ctx.db.transaction(async (tx) => {
-				// Hapus node yang belum kelar
-				await tx
-					.delete(roadmapNodes)
+			const restoreRetryableState = async () => {
+				await ctx.db
+					.update(learningRoadmaps)
+					.set({ currentStatus: "needs_recalibration" })
 					.where(
 						and(
-							eq(roadmapNodes.roadmapId, roadmap.id),
-							eq(roadmapNodes.isCompleted, false),
+							eq(learningRoadmaps.id, input.roadmapId),
+							eq(learningRoadmaps.userId, ctx.user.id),
+							eq(learningRoadmaps.currentStatus, "recalibrating"),
 						),
 					);
+			};
 
-				const completedCount = roadmap.nodes.filter(
-					(n) => n.isCompleted,
-				).length;
+			try {
+				return await runRecalibrationWorkflow({
+					claim: async () => {
+						const [claimedRoadmap] = await ctx.db
+							.update(learningRoadmaps)
+							.set({ currentStatus: "recalibrating" })
+							.where(
+								and(
+									eq(learningRoadmaps.id, input.roadmapId),
+									eq(learningRoadmaps.userId, ctx.user.id),
+									eq(
+										learningRoadmaps.currentStatus,
+										"needs_recalibration",
+									),
+								),
+							)
+							.returning();
 
-				await tx
-					.insert(roadmapNodes)
-					.values(formatNodesForInsert(adaptedNodes, ctx.user.id, roadmap.id, completedCount));
+						if (claimedRoadmap) {
+							return claimedRoadmap;
+						}
 
-				// Reset status roadmap jadi active
-				await tx
-					.update(learningRoadmaps)
-					.set({ currentStatus: "active", metadata: {} })
-					.where(eq(learningRoadmaps.id, roadmap.id));
+						const ownedRoadmap = await ctx.db.query.learningRoadmaps.findFirst({
+							where: and(
+								eq(learningRoadmaps.id, input.roadmapId),
+								eq(learningRoadmaps.userId, ctx.user.id),
+							),
+							columns: { id: true },
+						});
 
-				return { success: true };
-			});
+						if (!ownedRoadmap) {
+							throw new TRPCError({
+								code: "NOT_FOUND",
+								message: "Learning roadmap not found.",
+							});
+						}
+
+						return null;
+					},
+					generate: async (roadmap) => {
+						const nodes = await ctx.db.query.roadmapNodes.findMany({
+							where: and(
+								eq(roadmapNodes.roadmapId, roadmap.id),
+								eq(roadmapNodes.userId, ctx.user.id),
+							),
+							orderBy: (node, { asc }) => [asc(node.orderIndex)],
+						});
+						const triggerNode = findRecalibrationTriggerNode(
+							nodes,
+							roadmap.metadata,
+						);
+
+						if (!triggerNode) {
+							throw new Error("Recalibration has no incomplete trigger node.");
+						}
+
+						const [session, learningLog, tutorSession] = await Promise.all([
+							ctx.db.query.socraticSessions.findFirst({
+								where: and(
+									eq(socraticSessions.nodeId, triggerNode.id),
+									eq(socraticSessions.userId, ctx.user.id),
+								),
+							}),
+							ctx.db.query.learningLogs.findFirst({
+								where: and(
+									eq(learningLogs.nodeId, triggerNode.id),
+									eq(learningLogs.userId, ctx.user.id),
+								),
+							}),
+							ctx.db.query.tutorSessions.findFirst({
+								where: and(
+									eq(tutorSessions.nodeId, triggerNode.id),
+									eq(tutorSessions.userId, ctx.user.id),
+								),
+							}),
+						]);
+						const tutorTurnCount =
+							tutorSession?.chatHistory.filter(
+								(message) => message.role === "user",
+							).length ?? 0;
+						const recentSocraticMessages = (session?.chatHistory ?? [])
+							.slice(-8)
+							.map((message) => ({
+								role: message.role,
+								content: message.content.slice(0, 1200),
+							}));
+						const recentTimeRatios = learningLog?.timeRatios.slice(-2) ?? [];
+
+						const completedNodeTitles = nodes
+							.filter((node) => node.isCompleted)
+							.map((node) => node.title);
+						const recalibratedRoadmap = await roadmapService.recalibrateRoadmap({
+							goal:
+								roadmap.metadata?.originalPrompt ?? roadmap.goalDescription,
+							problematicNode: {
+								title: triggerNode.title,
+								difficultyLevel: triggerNode.difficultyLevel,
+								successCriteria: triggerNode.successCriteria,
+							},
+							learnerLevel: roadmap.metadata?.onboarding?.level,
+							completedNodeTitles,
+							recentSocraticMessages,
+							triggerReasons: learningLog?.triggerReasons ?? ["stagnation_score"],
+							interventionLevel:
+								learningLog?.interventionLevel ?? "recalibration",
+							behavioralSummary: {
+								socraticFailureCount:
+									learningLog?.socraticFailureCount ?? 0,
+								repeatedExcessiveTimeRatio:
+									recentTimeRatios.length === 2 &&
+									recentTimeRatios.every((ratio) => ratio > 2),
+								highEffort: (learningLog?.effortScore ?? 0) >= 7,
+								tutorHeavy: tutorTurnCount >= 5,
+								backtracking: (learningLog?.backtrackCount ?? 0) >= 2,
+							},
+						});
+						const adaptedNodes = z
+							.array(generatedNodeSchema)
+							.min(3)
+							.max(5)
+							.parse(recalibratedRoadmap.nodes);
+						const completedTitles = new Set(
+							completedNodeTitles.map((title) => title.trim().toLowerCase()),
+						);
+
+						if (
+							adaptedNodes.some((node) =>
+								completedTitles.has(node.title.trim().toLowerCase()),
+							)
+						) {
+							throw new Error(
+								"Recalibration output repeated completed material.",
+							);
+						}
+
+						return { adaptedNodes, learningLog, triggerNode };
+					},
+					replace: async (roadmap, generated) => {
+						return await ctx.db.transaction(async (tx) => {
+							const [lockedRoadmap] = await tx
+								.select()
+								.from(learningRoadmaps)
+								.where(
+									and(
+										eq(learningRoadmaps.id, roadmap.id),
+										eq(learningRoadmaps.userId, ctx.user.id),
+										eq(learningRoadmaps.currentStatus, "recalibrating"),
+									),
+								)
+								.for("update");
+
+							if (!lockedRoadmap) {
+								throw new RecalibrationNotEligibleError();
+							}
+
+							const currentNodes = await tx
+								.select()
+								.from(roadmapNodes)
+								.where(
+									and(
+										eq(roadmapNodes.roadmapId, roadmap.id),
+										eq(roadmapNodes.userId, ctx.user.id),
+									),
+								)
+								.orderBy(roadmapNodes.orderIndex);
+							const previousNodeTitles = currentNodes
+								.filter((node) => !node.isCompleted)
+								.map((node) => node.title);
+							const replacementStartIndex =
+								getReplacementStartIndex(currentNodes);
+							const replacementRows = formatNodesForInsert(
+								generated.adaptedNodes,
+								ctx.user.id,
+								roadmap.id,
+								replacementStartIndex,
+							);
+							const recalibrationLogId = nanoid();
+							const recalibratedAt = new Date();
+
+							await tx.delete(roadmapNodes).where(
+								and(
+									eq(roadmapNodes.roadmapId, roadmap.id),
+									eq(roadmapNodes.userId, ctx.user.id),
+									eq(roadmapNodes.isCompleted, false),
+								),
+							);
+
+							const insertedNodes = await tx
+								.insert(roadmapNodes)
+								.values(replacementRows)
+								.returning({ id: roadmapNodes.id });
+
+							await tx.insert(recalibrationLogs).values({
+								id: recalibrationLogId,
+								userId: ctx.user.id,
+								roadmapId: roadmap.id,
+								triggerNodeTitle: generated.triggerNode.title,
+								stagnationScore:
+									generated.learningLog?.stagnationScore ?? 0,
+								interventionLevel:
+									generated.learningLog?.interventionLevel ?? "recalibration",
+								triggerReasons:
+									generated.learningLog?.triggerReasons ?? ["stagnation_score"],
+								previousNodeTitles,
+								replacementNodeTitles: generated.adaptedNodes.map(
+									(node) => node.title,
+								),
+							});
+
+							await tx
+								.update(learningRoadmaps)
+								.set({
+									currentStatus: "active",
+									metadata: buildRecalibratedMetadata({
+										metadata: lockedRoadmap.metadata,
+										logId: recalibrationLogId,
+										recalibratedAt,
+									}),
+								})
+								.where(
+									and(
+										eq(learningRoadmaps.id, roadmap.id),
+										eq(learningRoadmaps.userId, ctx.user.id),
+										eq(learningRoadmaps.currentStatus, "recalibrating"),
+									),
+								);
+
+							const currentNodeId = insertedNodes[0]?.id;
+
+							if (!currentNodeId) {
+								throw new Error("Recalibration inserted no replacement nodes.");
+							}
+
+							return {
+								success: true,
+								currentNodeId,
+								replacementCount: insertedNodes.length,
+							};
+						});
+					},
+					restoreRetryableState,
+				});
+			} catch (error) {
+				if (error instanceof TRPCError) {
+					throw error;
+				}
+
+				if (error instanceof RecalibrationNotEligibleError) {
+					throw new TRPCError({
+						code: "CONFLICT",
+						message: error.message,
+					});
+				}
+
+				console.error("ROADMAP_RECALIBRATION_FAILED:", error);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "We couldn't adjust the learning path yet. Try again.",
+				});
+			}
 		}),
 
 	list: protectedProcedure.query(async ({ ctx }) => {
@@ -406,6 +632,10 @@ export const learningRouter = createTRPCRouter({
 				ctx,
 				roadmapId: input.roadmapId,
 				nodeId: input.nodeId,
+			});
+			assertRoadmapAllowsIncompleteNodeActivity({
+				currentStatus: roadmap.currentStatus,
+				isCompleted: node.isCompleted,
 			});
 
 			const lessonContent = await ensureLessonContent({
@@ -448,6 +678,10 @@ export const learningRouter = createTRPCRouter({
 				ctx,
 				roadmapId: input.roadmapId,
 				nodeId: input.nodeId,
+			});
+			assertRoadmapAllowsIncompleteNodeActivity({
+				currentStatus: roadmap.currentStatus,
+				isCompleted: node.isCompleted,
 			});
 
 			const lessonContent = await ensureLessonContent({
@@ -508,11 +742,12 @@ export const learningRouter = createTRPCRouter({
 	finishNode: protectedProcedure
 		.input(z.object({ roadmapId: z.string().min(1), nodeId: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
-			await getAccessibleRoadmapNode({
+			const { roadmap } = await getAccessibleRoadmapNode({
 				ctx,
 				roadmapId: input.roadmapId,
 				nodeId: input.nodeId,
 			});
+			assertRoadmapAllowsMastery(roadmap.currentStatus);
 
 			await ctx.db
 				.update(roadmapNodes)
@@ -527,11 +762,12 @@ export const learningRouter = createTRPCRouter({
 	reopenNode: protectedProcedure
 		.input(z.object({ roadmapId: z.string().min(1), nodeId: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
-			await getAccessibleRoadmapNode({
+			const { roadmap } = await getAccessibleRoadmapNode({
 				ctx,
 				roadmapId: input.roadmapId,
 				nodeId: input.nodeId,
 			});
+			assertRoadmapAllowsMastery(roadmap.currentStatus);
 
 			await ctx.db
 				.update(roadmapNodes)

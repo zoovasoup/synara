@@ -6,7 +6,7 @@ Use this file as the compact technical context for coding-agent work in this rep
 
 Synara is an AI-assisted adaptive learning workspace. A learner creates a course from a learning goal, receives an AI-generated roadmap, studies generated node lessons, asks a contextual tutor for help, and validates understanding through Socratic dialogue.
 
-The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and has a backend recalibration mutation that replaces unfinished nodes while preserving completed ones. The learner UI does not yet invoke that mutation.
+The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and automatically invokes the existing recalibration mutation from the learner workspace. Recalibration preserves completed work, transactionally replaces the unfinished path, records a compact history log, and selects the new current node.
 
 ## 2. Read Order
 
@@ -78,7 +78,7 @@ Do not move product-specific components into `packages/ui` merely to reduce loca
 - `askTutor` — contextual AI tutor with persisted history for an accessible node.
 - `finishNode` — legacy manual-completion mutation; no normal learner UI entry point.
 - `reopenNode` — legacy reopen mutation; no normal learner UI entry point.
-- `recalibrate` — replace incomplete nodes when roadmap is `needs_recalibration`.
+- `recalibrate` — atomically claim a `needs_recalibration` roadmap, generate a bounded replacement path, transactionally replace incomplete nodes, record the adaptation, and return the new current node.
 
 ### `validation`
 
@@ -102,6 +102,7 @@ Active in core flows:
 - `tutor_sessions`
 - `socratic_sessions`
 - `learning_logs`
+- `recalibration_logs`
 
 Existing but not wired into active business flows:
 
@@ -154,15 +155,19 @@ Do not regenerate a node lesson on every visit. The current design lazily genera
 
 Use transactions when a business action mutates multiple related records, especially roadmap recalibration/completion flows.
 
+### Adaptive state machine
+
+Automatic adaptation follows `active -> needs_recalibration -> recalibrating -> active`. Only the server can claim the transition into `recalibrating`. AI generation and validation happen before destructive replacement; deletion, replacement inserts, the recalibration log, metadata update, and return to `active` happen in one short transaction. A handled generation/database failure restores `needs_recalibration` for retry.
+
 ## 8. Known Traps
 
 ### Historical architecture terminology
 
 `document.md` refers to oRPC, Supabase RLS, richer cognitive profiles, and complete micro-artifact verification. The actual current implementation uses tRPC and does not evidence those full capabilities.
 
-### Recalibration is not end-to-end complete
+### Recalibration history scope
 
-The backend mutation exists. `course-workspace.tsx` currently only warns when recalibration is required; it does not call `learning.recalibrate`.
+Replacing an incomplete node cascades its aggregate `learning_logs`, Tutor session, and Socratic session. `recalibration_logs` preserves the trigger score/level/reasons and old/replacement node-title snapshots; this is intentionally not full event sourcing.
 
 ### Legacy completion mutations remain
 
@@ -269,9 +274,8 @@ For any meaningful code change:
 
 Unless the active task says otherwise, the largest current product gaps are:
 
-1. connect the learner UI to backend recalibration;
-2. decide whether the legacy manual completion/reopen mutations can be removed entirely;
-3. align recalibration UX, copy, and status handling;
-4. only then expand long-term cognitive profiling/logging if it remains in scope.
+1. decide whether the legacy manual completion/reopen mutations can be removed entirely;
+2. add database-backed integration coverage around AI and transaction failures;
+3. only then expand long-term cognitive profiling/logging if it remains in scope.
 
 Do not automatically implement these when assigned an unrelated task; they are context, not standing authorization for scope expansion.

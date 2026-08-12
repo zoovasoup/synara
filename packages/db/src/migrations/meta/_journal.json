@@ -36,6 +36,13 @@
       "when": 1786532300192,
       "tag": "0004_regular_hex",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786535000411,
+      "tag": "0005_eager_romulus",
+      "breakpoints": true
     }
   ]
 }

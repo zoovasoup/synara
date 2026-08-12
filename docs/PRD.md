@@ -69,7 +69,7 @@ Synara addresses these by combining a persistent roadmap, node-level lessons, co
 8. The learner enters Socratic validation and explains or applies the concept.
 9. A competency score of at least 80 marks the node complete automatically.
 10. Deterministic Stagnation Score hard triggers mark the roadmap as needing recalibration after a failed attempt.
-11. The intended next step is to regenerate the unfinished path while preserving completed nodes and the original learning goal.
+11. Synara automatically regenerates the unfinished path while preserving completed nodes and the original learning goal, then continues from the new current node.
 
 ## 7. Functional Requirements
 
@@ -162,7 +162,7 @@ The current implementation scores Socratic failures, active-time ratios, Tutor l
 
 When a roadmap needs recalibration, the system should preserve completed nodes and replace unfinished nodes with a more accessible route generated from the original goal and recent failure context.
 
-**Current state:** Backend implemented; end-to-end learner UX is incomplete because the course workspace does not currently invoke the recalibration mutation.
+**Current state:** Implemented end to end. The learner workspace automatically invokes recalibration after an authoritative trigger, shows pending/retry states, and continues from the new current node after transactional replacement.
 
 ### FR-11 Linear mastery progression
 
@@ -209,7 +209,7 @@ The legacy design document describes Supabase RLS as a second authorization laye
 - The course workspace should keep roadmap, lesson content, and coach/validation context visible together on large screens.
 - Mobile interactions must remain usable; course creation should use a bottom drawer on mobile and a side drawer on larger screens.
 - Loading, empty, error, and AI failure states must be visible to the learner.
-- Recalibration must eventually provide a clear learner action or automatic transition rather than only a warning toast.
+- Recalibration must automatically transition from the trigger into a calm pending state, then refresh and continue from the adapted current node without a full-page reload.
 - Product UI copy is currently English and should remain consistent until localization is intentionally introduced.
 
 ## 10. Success Criteria for the MVP
@@ -225,17 +225,16 @@ The MVP is product-complete when a learner can reliably:
 7. trigger a recalibration condition; and
 8. complete the recalibration flow from the learner UI without direct API intervention.
 
-The current implementation satisfies items 1-6 and the backend portion of item 7-8. See `IMPLEMENTATION_STATUS.md` for the exact audit state.
+The current implementation satisfies items 1-8. See `IMPLEMENTATION_STATUS.md` for the exact audit and test scope.
 
 ## 11. Product Decisions Still Open
 
 1. Can the legacy manual completion and reopen API mutations be removed after compatibility usage is confirmed?
-2. Should recalibration run automatically or require explicit learner confirmation?
-3. What learner history should be retained when incomplete nodes are replaced?
-4. How should cognitive-profile data influence future roadmap generation once it is wired in?
-5. Should external learning resources be curated, retrieved from trusted providers, or remain AI-generated suggestions?
-6. What evidence is sufficient for micro-artifact validation, and which artifact types are supported?
-7. What telemetry is required to evaluate learning effectiveness without collecting unnecessary learner data?
+2. Should recalibration history eventually retain richer event-level evidence beyond the compact trigger snapshot?
+3. How should cognitive-profile data influence future roadmap generation once it is wired in?
+4. Should external learning resources be curated, retrieved from trusted providers, or remain AI-generated suggestions?
+5. What evidence is sufficient for micro-artifact validation, and which artifact types are supported?
+6. What telemetry is required to evaluate learning effectiveness without collecting unnecessary learner data?
 
 ## 12. Non-Goals for the Current MVP
 

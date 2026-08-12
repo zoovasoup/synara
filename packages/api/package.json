@@ -12,7 +12,8 @@
 	"scripts": {
 		"check-types": "tsc --noEmit",
 		"test:progression": "bun run tests/node-progression.check.ts",
-		"test:stagnation": "bun run tests/stagnation-score.check.ts"
+		"test:stagnation": "bun run tests/stagnation-score.check.ts",
+		"test:recalibration": "bun run tests/recalibration.check.ts"
 	},
 	"dependencies": {
 		"@gemastik/auth": "workspace:*",

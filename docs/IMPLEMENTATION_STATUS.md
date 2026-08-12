@@ -37,8 +37,9 @@ The audit was performed against the implementation state on `master` immediately
 | Sentiment signal | Implemented | Gemini returns 0.0-1.0 sentiment score | Retained as historical telemetry; not an authoritative recalibration trigger. |
 | Stagnation Score | Implemented | Deterministic score uses Socratic failures, time ratios, Tutor learner turns, backtracks, and effort 1-9 | Quiz and hint signals are not implemented. |
 | Recalibration trigger | Implemented | Two Socratic failures, two consecutive time ratios >2.0, or Stagnation Score >=70 marks the roadmap `needs_recalibration` after a failed attempt | Passing mastery on the same attempt takes precedence; recalibration execution remains separate. |
-| Backend recalibration mutation | Implemented | Incomplete nodes replaced; completed nodes preserved | Uses failed-node Socratic context. |
-| Learner-facing recalibration execution | Partial | UI displays warning toast when recalibration is required | Course workspace does not currently call `learning.recalibrate`. |
+| Backend recalibration mutation | Implemented | Explicit status claim, bounded AI context, validated 3-5 node output, and transactional unfinished-path replacement | Completed nodes and stable roadmap metadata are preserved. |
+| Learner-facing recalibration execution | Implemented | A failed validation hard trigger automatically invokes `learning.recalibrate`, refreshes course/dashboard state, and selects the new current node | Pending, success, recoverable error, and retry states are present. |
+| Recalibration history | Implemented | One compact log per successful recalibration stores trigger snapshot and old/replacement node titles | No full prompt/response blobs or analytics UI. |
 | Manual node completion | Deprecated learner flow | `finishNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | The retained mutation also rejects future locked nodes. |
 | Reopen completed node | Deprecated learner flow | `reopenNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | Completed nodes remain readable and tutor-accessible without reopening. |
 | Cognitive profile storage | Schema-only | `user_cognitive_profiles` table exists | Not read or updated by current learning flows. |
@@ -70,7 +71,7 @@ Sign up / sign in
 
 This is the current demo-ready core.
 
-## Partially Connected Adaptive Path
+## Connected Adaptive Path
 
 ```text
 Socratic validation
@@ -78,23 +79,14 @@ Socratic validation
   -> calculate deterministic Stagnation Score
   -> evaluate repeated-failure, repeated-time-ratio, and score hard triggers
   -> roadmap becomes needs_recalibration
-  -> UI warns learner
-  -X-> recalibration mutation is not invoked by UI
-```
-
-The backend continuation already exists:
-
-```text
-learning.recalibrate
-  -> load failed-node Socratic history
-  -> generate more accessible replacement nodes
-  -> delete incomplete old nodes
+  -> UI automatically invokes learning.recalibrate
+  -> roadmap atomically becomes recalibrating
+  -> generate and validate a more accessible replacement path
   -> preserve completed nodes
-  -> insert replacement path
+  -> transactionally replace incomplete nodes and write recalibration log
   -> mark roadmap active
+  -> refresh course and select the new current node
 ```
-
-The key missing piece is the learner-facing bridge between the warning and that mutation.
 
 ## Product / Implementation Contradictions
 
@@ -106,7 +98,7 @@ The normal learner workspace now completes the current node only through Socrati
 
 The historical design describes a persistent cognitive profile influencing curriculum generation. The current implementation does not use `user_cognitive_profiles` in roadmap generation/recalibration.
 
-Current adaptive behavior is narrower: `learning_logs` supports the deterministic Stagnation Score, while recalibration generation still uses the failed node and its Socratic conversation rather than a long-term cognitive profile.
+Current adaptive behavior is narrower: `learning_logs` supports the deterministic Stagnation Score, while recalibration uses the trigger-node snapshot, bounded Socratic context, and a compact behavioral summary rather than a long-term cognitive profile.
 
 ### 3. RLS claim vs repository evidence
 
@@ -117,13 +109,6 @@ Application-level ownership checks are present. Repository-owned database RLS po
 The table exists, but no active API/UI flow verifies repositories, files, or live demos. Treat micro-artifact verification as future work.
 
 ## Priority Gaps
-
-### P0 — Complete the adaptive MVP loop
-
-1. Add a learner-facing action or automatic orchestration for `learning.recalibrate`.
-2. Define loading/failure/success states for recalibration.
-3. Refresh the roadmap after successful replacement.
-4. Decide whether recalibration needs learner confirmation.
 
 ### P1 — Retire legacy completion mutations
 
@@ -156,6 +141,8 @@ No comprehensive automated product test suite was identified during this documen
 A focused progression check now covers the derived completed/current/locked states, locked-node server access contract, next-node unlocking, final roadmap completion, and zero-node draft behavior. It is not a full database-backed router integration suite.
 
 A focused Stagnation Score check covers the deterministic signal weights, exclusive time tiers, all three hard triggers, mastery precedence, and completed-node review isolation. It is also a domain-level check rather than a database-backed router integration suite.
+
+Focused recalibration checks cover eligibility, state transitions, preservation/replacement ordering, derived progression, metadata, logging, duplicate calls, generation/database failure boundaries, and frontend single-flight orchestration. They use deterministic fakes rather than a live PostgreSQL transaction or Gemini integration.
 
 For meaningful feature changes, at minimum verify:
 
