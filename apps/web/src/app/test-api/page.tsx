@@ -43,6 +43,10 @@ export default function SocraticTestPage() {
 			await socraticMutation.mutateAsync({
 				nodeId: nodeId,
 				message: msg,
+				attemptId: crypto.randomUUID(),
+				activeStudySeconds: 0,
+				backtrackDelta: 0,
+				effortScore: 5,
 			});
 			toast.success("Response validated!");
 			// Refresh data roadmap kalau perlu biar status 'isCompleted' keliatan berubah

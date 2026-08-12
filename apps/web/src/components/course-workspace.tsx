@@ -5,10 +5,13 @@ import * as React from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import Link from 'next/link'
 
+import { useActiveStudyAttempt } from '@/hooks/use-active-study-attempt'
 import { useTRPC } from '@/utils/trpc'
 import { Badge } from '@gemastik/ui/components/badge'
 import { Button } from '@gemastik/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gemastik/ui/components/card'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@gemastik/ui/components/field'
+import { Input } from '@gemastik/ui/components/input'
 import { ScrollArea } from '@gemastik/ui/components/scroll-area'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@gemastik/ui/components/tabs'
@@ -101,6 +104,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
   const [draftTutorMessage, setDraftTutorMessage] = React.useState('')
   const [draftValidationMessage, setDraftValidationMessage] = React.useState('')
+  const [mentalEffort, setMentalEffort] = React.useState(5)
   const [activeTab, setActiveTab] = React.useState<'tutor' | 'validation'>('tutor')
 
   const courseQuery = useQuery(trpc.learning.getById.queryOptions({ id: courseId })) as UseQueryResult<CourseDetail, Error>
@@ -127,6 +131,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
     courseQuery.data?.nodes.find((node) => node.progressionState === 'current') ??
     courseQuery.data?.nodes.find((node) => node.progressionState === 'completed') ??
     null
+  const currentNode = courseQuery.data?.nodes.find((node) => node.progressionState === 'current') ?? null
 
   const lessonContentQuery = useQuery({
     ...trpc.learning.getNodeContent.queryOptions(selectedNode ? { roadmapId: courseId, nodeId: selectedNode.id } : skipToken),
@@ -145,6 +150,20 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
 
   const tutorChat = useMutation(trpc.learning.askTutor.mutationOptions())
   const validationChat = useMutation(trpc.validation.submitSocratic.mutationOptions())
+  const activeStudyAttempt = useActiveStudyAttempt({
+    nodeId: currentNode?.id ?? null,
+    isTracking: Boolean(
+      currentNode &&
+      selectedNode?.id === currentNode.id &&
+      lessonContentQuery.isSuccess &&
+      lessonContentQuery.data?.nodeId === currentNode.id &&
+      !validationChat.isPending,
+    ),
+  })
+
+  React.useEffect(() => {
+    setMentalEffort(5)
+  }, [currentNode?.id])
 
   if (courseQuery.isPending) {
     return (
@@ -182,6 +201,19 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const progress = course.nodes.length > 0 ? Math.round((completedCount / course.nodes.length) * 100) : 0
   const tutorMessages = tutorSessionQuery.data ?? []
   const validationMessages = socraticSessionQuery.data?.chatHistory ?? []
+
+  const handleSelectNode = (node: CourseNode) => {
+    if (
+      currentNode &&
+      selectedNode?.id === currentNode.id &&
+      node.progressionState === 'completed' &&
+      node.orderIndex < currentNode.orderIndex
+    ) {
+      activeStudyAttempt.recordBacktrack()
+    }
+
+    setSelectedNodeId(node.id)
+  }
 
   const refreshCourseData = async () => {
     await queryClient.invalidateQueries({ queryKey: trpc.learning.getById.queryKey({ id: courseId }) })
@@ -230,12 +262,18 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
     }
 
     setDraftValidationMessage('')
+    const attempt = activeStudyAttempt.getSnapshot()
 
     try {
       const result = await validationChat.mutateAsync({
         nodeId: selectedNode.id,
         message,
+        effortScore: mentalEffort,
+        ...attempt,
       })
+
+      activeStudyAttempt.completeAttempt()
+      setMentalEffort(5)
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: trpc.validation.getSocraticSession.queryKey({ nodeId: selectedNode.id }) }),
@@ -259,8 +297,8 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       }
 
       if (result.recalibrationRequired) {
-        toast.warning('Roadmap recalibration required', {
-          description: 'Your learning path needs adjustment based on this validation session.',
+        toast.warning('Your learning path needs adjustment', {
+          description: 'This step is taking more effort than expected.',
         })
       }
     } catch (error) {
@@ -314,7 +352,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                       <button
                         key={node.id}
                         type='button'
-                        onClick={() => setSelectedNodeId(node.id)}
+                        onClick={() => handleSelectNode(node)}
                         disabled={isLocked}
                         aria-current={isCurrent ? 'step' : undefined}
                         title={isLocked ? 'Complete the previous step first.' : undefined}
@@ -564,19 +602,9 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                     </div>
 
                     {socraticSessionQuery.data ? (
-                      <div className='grid grid-cols-3 gap-2 text-xs'>
-                        <div className='border px-3 py-2'>
-                          <p className='text-muted-foreground'>Competency</p>
-                          <p className='mt-1 font-medium text-foreground'>{Math.round(socraticSessionQuery.data.competencyScore ?? 0)}</p>
-                        </div>
-                        <div className='border px-3 py-2'>
-                          <p className='text-muted-foreground'>Stumbles</p>
-                          <p className='mt-1 font-medium text-foreground'>{socraticSessionQuery.data.stumbleCount}</p>
-                        </div>
-                        <div className='border px-3 py-2'>
-                          <p className='text-muted-foreground'>Sentiment</p>
-                          <p className='mt-1 font-medium text-foreground'>{socraticSessionQuery.data.sentimentScore.toFixed(2)}</p>
-                        </div>
+                      <div className='border px-3 py-2 text-xs'>
+                        <p className='text-muted-foreground'>Latest competency</p>
+                        <p className='mt-1 font-medium text-foreground'>{Math.round(socraticSessionQuery.data.competencyScore ?? 0)} / 100</p>
                       </div>
                     ) : null}
 
@@ -611,7 +639,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                   </div>
                 </ScrollArea>
 
-                <form onSubmit={handleSendValidationMessage} className='mt-4 space-y-3 border-t px-6 pb-6 pt-4'>
+                <form onSubmit={handleSendValidationMessage} className='mt-4 flex flex-col gap-3 border-t px-6 pb-6 pt-4'>
                   <label htmlFor='validation-message' className='text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground'>
                     Respond for validation
                   </label>
@@ -623,6 +651,31 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                     disabled={!selectedNode || validationChat.isPending || selectedNode?.isCompleted}
                     className='min-h-28 w-full resize-y rounded-none border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring disabled:cursor-not-allowed disabled:opacity-50'
                   />
+                  {selectedNode && !selectedNode.isCompleted ? (
+                    <FieldGroup className='gap-3'>
+                      <Field>
+                        <div className='flex items-center justify-between gap-3'>
+                          <FieldLabel htmlFor='mental-effort'>How mentally demanding did this step feel?</FieldLabel>
+                          <Badge variant='outline'>{mentalEffort} / 9</Badge>
+                        </div>
+                        <Input
+                          id='mental-effort'
+                          type='range'
+                          min={1}
+                          max={9}
+                          step={1}
+                          value={mentalEffort}
+                          onChange={(event) => setMentalEffort(Number(event.target.value))}
+                          disabled={validationChat.isPending}
+                          aria-valuetext={`${mentalEffort} out of 9`}
+                        />
+                        <FieldDescription className='flex justify-between gap-3'>
+                          <span>1 = Very low effort</span>
+                          <span>9 = Very high effort</span>
+                        </FieldDescription>
+                      </Field>
+                    </FieldGroup>
+                  ) : null}
                   <div className='flex items-center justify-between gap-3 text-xs text-muted-foreground'>
                     <span>
                       {selectedNode?.isCompleted
@@ -630,7 +683,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                         : 'A score of 80 or above finishes the selected step.'}
                     </span>
                     <Button type='submit' disabled={!selectedNode || !draftValidationMessage.trim() || validationChat.isPending || selectedNode?.isCompleted}>
-                      <CircleCheckBigIcon className='size-4' />
+                      <CircleCheckBigIcon data-icon='inline-start' />
                       Validate
                     </Button>
                   </div>

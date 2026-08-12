@@ -62,7 +62,11 @@ assertEqual(
 	"Scenario C completion",
 );
 
-function createNodeAccessContext(nodes: TestNode[], targetNodeId: string) {
+function createNodeAccessContext(
+	nodes: TestNode[],
+	targetNodeId: string,
+	roadmapUserId = "user-1",
+) {
 	const targetNode = nodes.find((node) => node.id === targetNodeId);
 	if (!targetNode) {
 		throw new Error("Test target node was not found.");
@@ -78,7 +82,7 @@ function createNodeAccessContext(nodes: TestNode[], targetNodeId: string) {
 						roadmapId: "roadmap-1",
 						roadmap: {
 							id: "roadmap-1",
-							userId: "user-1",
+							userId: roadmapUserId,
 							nodes,
 						},
 					}),
@@ -88,6 +92,18 @@ function createNodeAccessContext(nodes: TestNode[], targetNodeId: string) {
 		user: { id: "user-1" },
 	};
 }
+
+let ownershipError = "";
+try {
+	await getAccessibleRoadmapNode({
+		ctx: createNodeAccessContext(allIncomplete, "a", "another-user"),
+		nodeId: "a",
+		roadmapId: "roadmap-1",
+	});
+} catch (error) {
+	ownershipError = error instanceof Error ? error.message : "";
+}
+assertEqual(ownershipError, "Roadmap step not found.", "Ownership isolation");
 
 for (const procedure of [
 	"learning.getNodeContent",

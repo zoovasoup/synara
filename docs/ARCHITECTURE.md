@@ -91,6 +91,8 @@ The course workspace is currently a three-column composition on large screens:
 2. selected node lesson content; and
 3. coach panel containing Tutor and Validation tabs.
 
+`use-active-study-attempt.ts` measures a lightweight current-node attempt window after lesson content is available. It pauses while the document is hidden, during validation network wait, or while a completed node is being reviewed. The workspace increments a backtrack only when navigation leaves the current node for an earlier completed node and submits elapsed/backtrack deltas plus effort 1-9 with Socratic validation.
+
 ## 5. API Layer
 
 All core learning procedures are protected by tRPC authentication middleware. The middleware requires `ctx.session.user` and injects the authenticated user and shared database instance into protected procedures.
@@ -119,8 +121,10 @@ Primary responsibilities:
 - competency scoring;
 - cumulative stumble tracking;
 - sentiment extraction;
+- active-time/backtrack/effort metric persistence;
+- deterministic Stagnation Score calculation;
 - automatic node completion at competency >= 80;
-- setting roadmap status to `needs_recalibration` on blockage/frustration signals.
+- setting roadmap status to `needs_recalibration` on Stagnation Score hard triggers after a failed attempt.
 
 ## 6. AI Service
 
@@ -240,11 +244,14 @@ Learner validation message
   -> load owned roadmap node
   -> append message to Socratic history
   -> Gemini structured evaluation
-  -> persist response + scores
-  -> if competency >= 80: complete node
+  -> derive Tutor learner turns from persistent history
+  -> accumulate active time, time ratio, failures, backtracks, and effort
+  -> calculate deterministic Stagnation Score
+  -> persist validation + learning-log state atomically
+  -> if competency >= 80: complete node and ignore same-attempt stagnation eligibility
   -> derive and expose the next incomplete node by orderIndex
   -> if the final node completed: mark the roadmap completed in the same transaction
-  -> if stumble > 3 OR sentiment < 0.3: mark roadmap needs_recalibration
+  -> otherwise, if a Stagnation Score hard trigger fires: mark roadmap needs_recalibration
 ```
 
 ### Linear node access
@@ -257,8 +264,11 @@ The current validator returns:
 - `competency_score`
 - `stumble_count`
 - `sentiment_score`
+- `interventionLevel`
+- `recalibrationRequired`
+- `nextNodeId`
 
-The current recalibration trigger is rule-based after AI signal extraction rather than the cumulative formula described in the historical `document.md`.
+Stumble and sentiment remain session telemetry. They no longer determine recalibration eligibility. The authoritative hard triggers are two failed Socratic attempts, two consecutive recorded time ratios above 2.0, or a deterministic Stagnation Score of at least 70.
 
 ## 11. Recalibration Flow
 
@@ -337,13 +347,7 @@ No active API business logic currently reads or updates this table.
 
 ### `learning_logs`
 
-Schema exists for:
-
-- time spent;
-- stumble count;
-- sentiment score.
-
-No active API business logic currently writes or consumes this table.
+One aggregate row per learner + node stores cumulative active study seconds, Socratic failure count, recorded time ratios, cumulative backtracks, latest effort score, latest Stagnation Score/level, trigger reasons, and an idempotent last-attempt identifier. Legacy stumble and sentiment columns remain telemetry. Tutor turns are derived from `tutor_sessions.chat_history` at validation time.
 
 ### `micro_artifacts`
 
@@ -405,7 +409,7 @@ See `STYLE_GUIDE.md` for implementation conventions.
 
 1. Recalibration is not invoked from the learner UI.
 2. Cognitive profiles are not wired into generation or recalibration.
-3. Learning logs are not populated.
+3. Quiz and hint signals are not part of the current Stagnation Score.
 4. Micro-artifact validation is schema-only.
 5. RLS is documented historically but not evidenced in repository migrations/policies.
 6. Legacy manual completion/reopen API mutations remain for compatibility but are not exposed by the learner workspace.

@@ -29,6 +29,13 @@
       "when": 1776532738972,
       "tag": "0003_premium_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786532300192,
+      "tag": "0004_regular_hex",
+      "breakpoints": true
     }
   ]
 }

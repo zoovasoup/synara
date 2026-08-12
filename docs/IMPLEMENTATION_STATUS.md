@@ -33,15 +33,16 @@ The audit was performed against the implementation state on `master` immediately
 | Socratic validation chat | Implemented | Persistent validation session per node | Separate from tutor role. |
 | Competency scoring | Implemented | Gemini returns score 0-100 | Score is AI-produced and prompt-governed. |
 | Automatic completion at score >= 80 | Implemented | Validation mutation marks node complete | This is the preferred validated-completion path. |
-| Stumble accumulation | Implemented | Session stumble count accumulates across validation turns | Used in recalibration trigger. |
-| Sentiment signal | Implemented | Gemini returns 0.0-1.0 sentiment score | Used in recalibration trigger. |
-| Recalibration trigger | Implemented | Roadmap becomes `needs_recalibration` at stumble > 3 or sentiment < 0.3 | This differs from the cumulative formula in `document.md`. |
+| Stumble accumulation | Implemented | Session stumble count accumulates across validation turns | Retained as historical telemetry; not an authoritative recalibration trigger. |
+| Sentiment signal | Implemented | Gemini returns 0.0-1.0 sentiment score | Retained as historical telemetry; not an authoritative recalibration trigger. |
+| Stagnation Score | Implemented | Deterministic score uses Socratic failures, time ratios, Tutor learner turns, backtracks, and effort 1-9 | Quiz and hint signals are not implemented. |
+| Recalibration trigger | Implemented | Two Socratic failures, two consecutive time ratios >2.0, or Stagnation Score >=70 marks the roadmap `needs_recalibration` after a failed attempt | Passing mastery on the same attempt takes precedence; recalibration execution remains separate. |
 | Backend recalibration mutation | Implemented | Incomplete nodes replaced; completed nodes preserved | Uses failed-node Socratic context. |
 | Learner-facing recalibration execution | Partial | UI displays warning toast when recalibration is required | Course workspace does not currently call `learning.recalibrate`. |
 | Manual node completion | Deprecated learner flow | `finishNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | The retained mutation also rejects future locked nodes. |
 | Reopen completed node | Deprecated learner flow | `reopenNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | Completed nodes remain readable and tutor-accessible without reopening. |
 | Cognitive profile storage | Schema-only | `user_cognitive_profiles` table exists | Not read or updated by current learning flows. |
-| Learning activity logs | Schema-only | `learning_logs` table exists | No current API flow writes or consumes logs. |
+| Learning activity logs | Implemented for Stagnation MVP | One aggregate row per authenticated learner + node stores active seconds, failure/time/backtrack/effort metrics, score, level, and trigger reasons | Tutor learner turns are derived from persistent Tutor history rather than duplicated. |
 | Micro-artifact records | Schema-only | `micro_artifacts` table exists | No submission, review, or UI workflow. |
 | Long-term cognitive adaptation | Not implemented | Historical design describes it | Current recalibration uses recent Socratic failure context instead. |
 | Curated learning-source database | Not implemented | No active source ingestion/curation pipeline found | AI lesson resources are descriptive text only. |
@@ -73,8 +74,9 @@ This is the current demo-ready core.
 
 ```text
 Socratic validation
-  -> accumulate stumble/sentiment signals
-  -> trigger blockage/frustration rule
+  -> record active time, failure, backtrack, effort, and Tutor-turn signals
+  -> calculate deterministic Stagnation Score
+  -> evaluate repeated-failure, repeated-time-ratio, and score hard triggers
   -> roadmap becomes needs_recalibration
   -> UI warns learner
   -X-> recalibration mutation is not invoked by UI
@@ -102,9 +104,9 @@ The normal learner workspace now completes the current node only through Socrati
 
 ### 2. Adaptive cognitive memory vs recent-session adaptation
 
-The historical design describes a persistent cognitive profile influencing curriculum generation. The current implementation does not use `user_cognitive_profiles` or `learning_logs` in roadmap generation/recalibration.
+The historical design describes a persistent cognitive profile influencing curriculum generation. The current implementation does not use `user_cognitive_profiles` in roadmap generation/recalibration.
 
-Current adaptive behavior is narrower: the system reacts to the failed node and its Socratic conversation.
+Current adaptive behavior is narrower: `learning_logs` supports the deterministic Stagnation Score, while recalibration generation still uses the failed node and its Socratic conversation rather than a long-term cognitive profile.
 
 ### 3. RLS claim vs repository evidence
 
@@ -127,14 +129,13 @@ The table exists, but no active API/UI flow verifies repositories, files, or liv
 
 Confirm whether any non-workspace consumers still require `finishNode` or `reopenNode`, then remove them if compatibility is no longer needed.
 
-### P1 — Make adaptive data real
+### P1 — Expand adaptive data only when required
 
 If long-term personalization remains in scope:
 
-1. define when `learning_logs` are written;
-2. define how cognitive profile fields are updated;
-3. feed bounded, useful profile context into roadmap generation/recalibration;
-4. avoid collecting signals that are not actually used.
+1. define how cognitive profile fields would be updated;
+2. feed bounded, useful profile context into roadmap generation/recalibration only if product requirements justify it;
+3. avoid collecting signals that are not actually used.
 
 ### P1 — Artifact validation
 
@@ -153,6 +154,8 @@ Historical names remain in package namespaces and prompts (`@gemastik/*`, `gemas
 No comprehensive automated product test suite was identified during this documentation audit. There are development/testing artifacts in the repository, but they should not be treated as evidence of full regression coverage.
 
 A focused progression check now covers the derived completed/current/locked states, locked-node server access contract, next-node unlocking, final roadmap completion, and zero-node draft behavior. It is not a full database-backed router integration suite.
+
+A focused Stagnation Score check covers the deterministic signal weights, exclusive time tiers, all three hard triggers, mastery precedence, and completed-node review isolation. It is also a domain-level check rather than a database-backed router integration suite.
 
 For meaningful feature changes, at minimum verify:
 

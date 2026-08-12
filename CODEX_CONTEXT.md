@@ -6,7 +6,7 @@ Use this file as the compact technical context for coding-agent work in this rep
 
 Synara is an AI-assisted adaptive learning workspace. A learner creates a course from a learning goal, receives an AI-generated roadmap, studies generated node lessons, asks a contextual tutor for help, and validates understanding through Socratic dialogue.
 
-The current adaptive loop can detect repeated stumbling/frustration and has a backend recalibration mutation that replaces unfinished roadmap nodes while preserving completed ones. The learner UI does not yet invoke that mutation.
+The current adaptive loop calculates a deterministic Stagnation Score from behavioral signals, marks eligible roadmaps `needs_recalibration`, and has a backend recalibration mutation that replaces unfinished nodes while preserving completed ones. The learner UI does not yet invoke that mutation.
 
 ## 2. Read Order
 
@@ -83,13 +83,14 @@ Do not move product-specific components into `packages/ui` merely to reduce loca
 ### `validation`
 
 - `getSocraticSession` — persisted validation state.
-- `submitSocratic` — AI response + competency/stumble/sentiment signals.
+- `submitSocratic` — AI response, mastery decision, behavioral-metric persistence, and deterministic Stagnation Score evaluation.
 
 Current validation behavior:
 
 - competency >= 80 -> node completes;
 - completion exposes the next incomplete node according to `orderIndex`;
-- cumulative stumble count > 3 OR latest sentiment < 0.3 -> roadmap becomes `needs_recalibration`.
+- failed attempts, active-time ratios, Tutor learner turns, backtracks, and effort 1-9 feed the deterministic Stagnation Score;
+- repeated Socratic failure, two consecutive time ratios above 2.0, or score >= 70 marks the roadmap `needs_recalibration` when the current attempt did not pass.
 
 ## 6. Core Database Tables
 
@@ -100,11 +101,11 @@ Active in core flows:
 - `roadmap_nodes`
 - `tutor_sessions`
 - `socratic_sessions`
+- `learning_logs`
 
 Existing but not wired into active business flows:
 
 - `user_cognitive_profiles`
-- `learning_logs`
 - `micro_artifacts`
 
 Do not assume a table is an implemented product feature simply because its schema exists.
@@ -126,6 +127,10 @@ Recalibration must preserve completed nodes and replace only unfinished work unl
 ### Linear mastery progression
 
 Roadmap prerequisites are currently linear by `orderIndex`. Completed nodes remain accessible for review, the first incomplete node is current and accessible, and later incomplete nodes are locked. This state is derived from node order and completion rather than stored in a database column. Learner-facing node procedures must enforce the same access rule on the server.
+
+### Deterministic stagnation eligibility
+
+The current incomplete node accumulates one `learning_logs` row per learner + node. The server calculates Stagnation Score from Socratic failures, per-attempt active-time ratios, Tutor learner turns derived from persistent Tutor history, backtracks, and the latest 1-9 effort report. AI stumble and sentiment values remain historical telemetry and are not authoritative recalibration triggers. Passing mastery on the current attempt takes precedence over stagnation eligibility.
 
 ### Tutor != Validator
 
@@ -163,9 +168,9 @@ The backend mutation exists. `course-workspace.tsx` currently only warns when re
 
 The normal learner UI completes nodes only through Socratic Validation and no longer exposes `Finish manually` or `Reopen step`. The `learning.finishNode` and `learning.reopenNode` procedures remain temporarily for compatibility, are protected by the linear node-access rule, and should not be treated as normal learner flows.
 
-### Cognitive data is not active
+### Cognitive profile data is not active
 
-`user_cognitive_profiles` and `learning_logs` exist but are not currently used by generation/recalibration logic.
+`user_cognitive_profiles` remains schema-only. `learning_logs` is active only for the Phase 2 deterministic Stagnation Score; it does not implement long-term cognitive-profile adaptation.
 
 ### Artifact verification is not active
 

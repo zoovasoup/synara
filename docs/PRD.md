@@ -68,7 +68,7 @@ Synara addresses these by combining a persistent roadmap, node-level lessons, co
 7. The learner studies the lesson and may ask the contextual tutor for help.
 8. The learner enters Socratic validation and explains or applies the concept.
 9. A competency score of at least 80 marks the node complete automatically.
-10. Repeated stumbling or low sentiment marks the roadmap as needing recalibration.
+10. Deterministic Stagnation Score hard triggers mark the roadmap as needing recalibration after a failed attempt.
 11. The intended next step is to regenerate the unfinished path while preserving completed nodes and the original learning goal.
 
 ## 7. Functional Requirements
@@ -152,12 +152,9 @@ A competency score of at least 80 should automatically complete the node.
 
 ### FR-9 Recalibration trigger
 
-The roadmap should be marked `needs_recalibration` when the learner shows a persistent learning blockage or strong frustration signal.
+The roadmap should be marked `needs_recalibration` when deterministic behavioral signals indicate persistent stagnation.
 
-The current implementation triggers this when either:
-
-- accumulated Socratic stumble count is greater than 3; or
-- the latest sentiment score is below 0.3.
+The current implementation scores Socratic failures, active-time ratios, Tutor learner turns, backtracks, and self-reported effort. It triggers eligibility on two failed Socratic attempts, two consecutive time ratios above 2.0, or Stagnation Score >=70. A successful mastery attempt takes precedence. Stumble and sentiment remain telemetry only.
 
 **Current state:** Implemented.
 
@@ -183,9 +180,9 @@ Database structures exist for preferred format, average focus duration, weak top
 
 ### Learning logs
 
-Database structures exist for time spent, stumble count, and sentiment history, but current routers do not write or consume them.
+Validation persists an aggregate learning-log row per learner + node for the deterministic Stagnation Score. Quiz, hint, and long-term cognitive-profile signals are not implemented.
 
-**Status:** Schema-only.
+**Status:** Implemented for the Stagnation Score MVP.
 
 ### Micro-artifact verification
 
