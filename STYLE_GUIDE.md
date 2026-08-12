@@ -2,367 +2,628 @@
 
 ## 1. Purpose
 
-This guide documents the conventions already visible in Synara and the defaults to preserve when extending the product. It covers product copy, UI composition, TypeScript/application code, API patterns, database naming, and AI prompt conventions.
+This guide defines Synara's product-facing visual, interaction, copy, and implementation conventions.
 
-It is not a mandate to restyle unrelated code. Follow local conventions when they are more specific and avoid mass-formatting.
+Synara is an adaptive learning workspace for students, not a generic administration dashboard and not an open-ended AI chat product. The interface must help learners understand three things quickly:
 
-## 2. Product Language
+1. **Where am I in the learning path?**
+2. **What should I focus on now?**
+3. **What should I do next?**
 
-### Canonical name
+Every design decision should reduce avoidable choice, visual competition, and context switching.
 
-Use **Synara** in new product-facing documentation and UI copy.
+## 2. Design Direction
 
-Historical names such as `gemastik-roadmap`, `gemastik`, `@gemastik/*`, and `Gradio Engine` may remain in code until a dedicated rename is intentionally scoped.
+### Product genre
 
-### UI language
+Synara should feel like a **calm technical learning workspace**.
 
-Current product UI is predominantly English. New learner-facing copy should therefore be English unless localization is explicitly introduced.
+The intended character is:
 
-When touching an existing learner-facing message that is informal Indonesian, prefer normalizing the touched flow to clear English rather than adding more mixed-language copy.
+- structured, but not rigid;
+- technical, but not intimidating;
+- supportive, but not playful or childish;
+- focused, but not visually empty;
+- AI-assisted, without looking like a generic chatbot.
 
-### Tone
+Avoid drifting toward either extreme:
 
-Use concise, instructional language.
+- **admin/SaaS dashboard:** dense cards, equal-weight metrics, excessive borders, raw system telemetry; or
+- **playful consumer edtech:** oversized illustrations, gamification-first visuals, excessive celebration, decorative gradients.
+
+The visual system should make the learning path feel dependable and understandable.
+
+## 3. Core UX Principles
+
+### 3.1 One primary learning decision at a time
+
+A screen may contain multiple capabilities, but only one should visually dominate.
+
+The learner should not have to decide between many equally prominent actions. Use hierarchy and progressive disclosure to make the next useful action obvious.
+
+### 3.2 Roadmap as learning navigation
+
+The roadmap is not merely a list of modules. It communicates:
+
+- prerequisite order;
+- current position;
+- completed work;
+- locked future work; and
+- adaptive/remedial changes.
+
+Roadmap state should be understandable before reading detailed text.
+
+### 3.3 Lesson first, assistance second
+
+Inside a course, the lesson is the primary workspace. Tutor and validation are supporting layers.
+
+Do not give roadmap, lesson, tutor, validation, and system metrics equal visual weight.
+
+### 3.4 Translate telemetry into useful feedback
+
+Internal adaptive signals such as stumble count, sentiment values, time ratios, or stagnation scores are system inputs, not primary learner-facing content.
 
 Prefer:
 
-- `Create course`
-- `Validate to finish step`
-- `Roadmap recalibration required`
-- `Unable to load this course`
+> This step is taking more effort than expected. We can reinforce the prerequisites before continuing.
+
+Instead of:
+
+> Sentiment: 0.24, Stumbles: 4, Stagnation Score: 65.
+
+Raw values may appear in developer/admin diagnostics, but normal learner UI should communicate meaning and action.
+
+### 3.5 Adapt without punishment
+
+Recalibration should feel like the system is improving the route, not declaring learner failure.
+
+Prefer language such as:
+
+- `Adjust learning path`
+- `Review a prerequisite first`
+- `We adjusted the next steps`
+- `Try a more guided path`
+
+Avoid language such as:
+
+- `You failed`
+- `Bad performance`
+- `High frustration detected`
+
+## 4. Product Language
+
+### Canonical name
+
+Use **Synara** in all new learner-facing copy and project documentation.
+
+Historical implementation names such as `gemastik`, `@gemastik/*`, and `Gradio Engine` may remain in code until a deliberate rename is scoped.
+
+### UI language
+
+The current product UI is English. Keep learner-facing copy consistently English unless localization is intentionally introduced.
+
+### Tone
+
+Use concise, calm, instructional language.
+
+Prefer:
+
+- `Continue learning`
+- `Validate understanding`
+- `Review prerequisite`
+- `Adjust learning path`
+- `Course saved as draft`
+- `Unable to generate the roadmap. Try again.`
 
 Avoid:
 
-- excessive AI hype;
-- claims that a result is objectively correct when it is AI-scored;
-- vague labels such as `Magic` or `Smart mode` when the actual behavior can be named;
-- technical provider terminology in learner-facing messages unless it helps the learner recover.
+- AI hype such as `magical`, `super smart`, or `genius mode`;
+- provider terminology unless needed for recovery;
+- vague calls to action such as `Go`, `Do it`, or `Magic`;
+- overconfident claims about AI-generated evaluation.
 
 ### State copy
 
-Copy must reflect server truth.
+Copy must reflect actual server state.
 
-Do not say a roadmap was recalibrated until the recalibration mutation succeeded. Do not say validation is the only completion mechanism while `Finish manually` remains available.
+Do not say a node is completed before persistence succeeds. Do not say a roadmap was recalibrated before replacement nodes are successfully stored.
 
-## 3. Visual Foundation
+## 5. Visual Foundation
 
-The global theme is defined in `packages/ui/src/styles/globals.css`.
+The shared theme lives in `packages/ui/src/styles/globals.css`.
 
-### Typography
+### 5.1 Typography
 
-- Primary sans-serif: **Plus Jakarta Sans**
-- Serif: **Lora**
-- Monospace: **IBM Plex Mono**
+Primary UI font:
 
-Use the sans-serif stack for normal product UI. Serif and monospace should be intentional, not decorative defaults.
+- **Plus Jakarta Sans** for navigation, controls, cards, and normal application copy.
 
-### Shape language
+Supporting fonts:
 
-Synara currently uses a square, flat interface:
+- **IBM Plex Mono** for code, commands, technical identifiers, or terminal-style learning examples.
+- **Lora** should be used sparingly, only when an editorial learning surface genuinely benefits from it. It should not become a decorative display font throughout the dashboard.
+
+For lesson content, prioritize reading comfort:
+
+- body size approximately 14-16px depending on viewport;
+- comfortable line-height around 1.55-1.7;
+- avoid very wide text columns;
+- preserve strong heading hierarchy.
+
+### 5.2 Shape language
+
+The previous fully square `0rem` radius makes the interface feel closer to a technical administration tool than a supportive learning workspace.
+
+The target system should use **soft, restrained geometry**.
+
+Recommended base token:
 
 ```css
---radius: 0rem;
+--radius: 0.625rem;
 ```
 
-Preserve square cards, inputs, chat bubbles, and panels unless a deliberate redesign changes the global design system.
+Guidance:
 
-Do not add arbitrary `rounded-xl`/`rounded-2xl` styling to product-specific elements simply because it is common in AI products.
+- normal cards/panels: medium radius;
+- inputs/buttons: small-to-medium radius;
+- status badges may use pill-like styling where useful;
+- avoid excessive `rounded-2xl` or oversized bubble shapes;
+- avoid mixing fully square and very rounded surfaces arbitrarily.
 
-### Color
+The goal is subtle softness, not a bubbly consumer-app aesthetic.
 
-Use semantic tokens such as:
+### 5.3 Color
 
-- `bg-background`
-- `text-foreground`
-- `text-muted-foreground`
-- `bg-primary`
-- `text-primary-foreground`
-- `border-border`
-- `bg-muted`
-- `text-destructive`
+Keep violet/purple as the Synara primary accent.
 
-The primary palette is violet/purple through theme tokens. Avoid hard-coded brand hex values in product components when an existing semantic token is appropriate.
+Use the primary color intentionally for:
 
-### Theme support
+- current learning step;
+- primary action;
+- active navigation;
+- progress emphasis;
+- selected state.
 
-Light and dark theme tokens both exist. New UI must remain readable in both themes unless the page is intentionally fixed to one appearance.
+Do not use purple on every border or decorative surface.
 
-### Shadows and borders
+State colors should remain semantic:
 
-The design relies more on borders and spacing than large floating shadows.
+- success: completed/mastered;
+- attention: needs support or recalibration;
+- destructive: actual failure/error states;
+- muted: locked, secondary, inactive content.
 
-Prefer bordered hierarchy over adding strong shadows to every card.
+Avoid gradients unless they provide a clear state or information benefit. Synara does not need decorative AI gradients to communicate that it uses AI.
 
-## 4. Shared UI Components
+### 5.4 Surfaces, borders, and shadows
 
-Reusable primitives belong in `packages/ui`. Product composition belongs in `apps/web`.
+Use **fewer containers with clearer hierarchy**.
 
-Prefer existing primitives from `@gemastik/ui`, including components such as:
+Prefer:
 
-- `Button`
-- `Card`
-- `Badge`
-- `Drawer`
-- `Input`
-- `Tabs`
-- `ScrollArea`
-- `Skeleton`
+- one strong page/workspace surface;
+- whitespace and section spacing inside it;
+- subtle separators;
+- low-contrast supporting panels.
 
-Before creating a new primitive, check whether an existing shadcn-based component already covers the need.
+Avoid:
 
-Do not move a course-specific component into the shared UI package merely because it is large.
+- card inside card inside card;
+- borders around every paragraph or concept;
+- multiple adjacent panels with identical visual weight;
+- heavy floating shadows.
 
-## 5. Layout Patterns
+Shadows should remain subtle. Structure should primarily come from spacing, typography, surface contrast, and selective borders.
 
-### Dashboard
+### 5.5 Light and dark mode
 
-Use the existing dashboard shell and sidebar composition rather than creating a separate page chrome.
+Both themes must remain supported and readable.
 
-### Course creation
+The current dark presentation is suitable for technical learning content and demos, but dark mode is not itself the product identity. Features must not rely on dark-only contrast assumptions.
 
-The current pattern is a short five-step guided flow:
+## 6. Information Density
 
-- bottom drawer on mobile;
-- right-side drawer on larger screens.
+Synara exists partly to reduce decision fatigue, so information density must be controlled intentionally.
 
-Preserve the sequential interaction unless the product requirement changes. Do not turn it into a dense multi-field form solely for implementation convenience.
+### Show first
 
-### Course workspace
+- current course or node;
+- progress;
+- next action;
+- current lesson objective;
+- prerequisite or adaptive state when relevant.
 
-On large screens the workspace is conceptually three areas:
+### De-emphasize
 
-1. roadmap navigation;
-2. selected-node lesson;
-3. tutor/validation coach panel.
+- creation date;
+- detailed metadata;
+- learning-style labels once they no longer affect the immediate task;
+- raw adaptive telemetry;
+- technical system status.
 
-Responsive changes should preserve access to all three concepts rather than simply hiding an entire capability on smaller screens.
+### Hide until needed
 
-### Dense learning UI
+- detailed score breakdowns;
+- complete AI diagnostics;
+- historic intervention logs;
+- secondary course metadata;
+- long resource explanations.
 
-Use spacing, borders, headings, badges, and clear state text to establish hierarchy. Avoid excessive decorative gradients, floating ornaments, glassmorphism, or dashboard-card proliferation that does not improve learning flow.
+## 7. Dashboard Pattern
 
-## 6. Feedback States
+The dashboard should follow three clear zones.
 
-Every async user action should have understandable states.
+### Zone 1 - Progress overview
+
+At the top, provide a compact overview of the active learning journey.
+
+Recommended information:
+
+- overall completion percentage;
+- active course;
+- current step;
+- estimated remaining effort/time when the estimate is trustworthy.
+
+Avoid turning this into a KPI grid with many unrelated cards.
+
+### Zone 2 - Learning roadmap
+
+Show the learning sequence as a visual path or timeline.
+
+Each node must visibly communicate one of these states:
+
+- `completed`
+- `current`
+- `available`
+- `locked`
+- `needs-support` / `recalibrating` when applicable
+
+For the MVP, a horizontal scrollable timeline is preferred on desktop if it remains readable. A vertical sequence is acceptable on narrow screens.
+
+Locked nodes must look unavailable and must not behave like normal clickable nodes.
+
+### Zone 3 - Continue learning
+
+Provide one prominent action to resume the active node.
+
+Secondary recommendations may appear only when they genuinely help the learner. Avoid presenting several alternative courses or next actions with equal prominence.
+
+### Course cards
+
+Course cards should prioritize:
+
+1. title/topic;
+2. current progress;
+3. current or next step;
+4. one concise pace/status signal.
+
+Metadata such as weekly hours, learning style, node count, and created date should not all compete at the same level.
+
+## 8. Course Workspace Pattern
+
+The course workspace should preserve three concepts but not three equal visual priorities.
+
+### Desktop hierarchy
+
+Conceptually:
+
+```text
+Roadmap navigation | Primary lesson workspace | Contextual coach
+```
+
+Recommended emphasis:
+
+- roadmap: narrow navigation/supporting column;
+- lesson: dominant reading/work area;
+- coach: secondary contextual panel.
+
+The lesson area should receive the most width and visual weight.
+
+### Roadmap panel
+
+Show:
+
+- step number;
+- concise title;
+- prerequisite/order state;
+- completion/current/locked indicator;
+- estimated time only when useful.
+
+Do not overload each row with every piece of node metadata.
+
+### Lesson surface
+
+Lesson content should feel closer to an editorial reading surface than a dashboard card stack.
+
+Use clear sections:
+
+- overview;
+- key concepts;
+- guided steps;
+- practice;
+- trusted resources;
+- success criteria.
+
+Avoid putting each individual concept or sentence in its own bordered rectangle.
+
+### Coach panel
+
+Tutor and Socratic validation may share one panel, but their roles must be visually distinct.
+
+**Tutor** = help me understand.
+
+**Validation** = check whether I am ready to continue.
+
+On medium screens, the coach panel may collapse into a drawer/sheet. On mobile, tutor and validation should use tabs or dedicated full-width states rather than squeezing three columns.
+
+### Validation results
+
+Normal learner UI should emphasize outcome and next action:
+
+- `Ready to continue`
+- `Review this concept once more`
+- `A prerequisite may need reinforcement`
+
+A numeric competency score may appear as secondary detail if needed, but raw stumble/sentiment telemetry should not be presented as the main feedback.
+
+## 9. Node Progression and Mastery States
+
+The visual model must match prerequisite behavior.
+
+### Completed
+
+- clearly marked as complete;
+- readable but visually quieter than current step.
+
+### Current
+
+- strongest roadmap emphasis;
+- primary accent;
+- obvious `Continue` or `Open` action.
+
+### Available
+
+- accessible but secondary to current.
+
+### Locked
+
+- disabled interaction;
+- muted state;
+- explain the prerequisite when useful.
+
+Example:
+
+> Complete "TypeScript Core Concepts" before opening this step.
+
+### Needs support / recalibration
+
+Use an attention state, not a destructive error state.
+
+Provide one clear action such as:
+
+- `Review prerequisite`
+- `Adjust learning path`
+
+## 10. Adaptive Intervention UI
+
+Adaptive behavior is a core Synara differentiator and must be visible without overwhelming the learner.
+
+### Light support
+
+Use small inline guidance:
+
+> Need a simpler explanation? Review a worked example first.
+
+### Remediation
+
+When the system inserts prerequisite micro-nodes, visually explain that the path has been adjusted.
+
+Example:
+
+> We added two short prerequisite steps before continuing this topic.
+
+### Recalibration
+
+The learner should see:
+
+- that the current route is being adjusted;
+- why in plain language;
+- what changed after completion;
+- how to continue.
+
+Avoid exposing the entire scoring formula during normal learning.
+
+## 11. Onboarding / Initial Skill Profiling
+
+Synara captures five core inputs:
+
+- topic;
+- current level;
+- learning goal;
+- weekly time commitment;
+- preferred learning style.
+
+To reduce perceived effort, group these into **three logical stages** rather than presenting a dense form:
+
+### Step 1 - Goal
+
+- topic;
+- why the learner wants to learn it.
+
+### Step 2 - Starting point
+
+- current level;
+- preferred learning style.
+
+### Step 3 - Commitment
+
+- weekly learning time;
+- short review/confirmation.
+
+Use a clear progress indicator. Do not ask for information that does not affect roadmap generation or adaptation.
+
+## 12. Learning Resources
+
+Resources presented as trusted/curated must clearly identify their source.
+
+Each displayed resource should eventually support:
+
+- title;
+- source/provider;
+- URL;
+- type;
+- recommended level;
+- short reason it is relevant.
+
+Do not present AI-invented resource names as though they are verified external references.
+
+Official documentation, verified tutorials, and open courseware should visually communicate source credibility without creating a complicated rating interface.
+
+## 13. Feedback States
+
+Every async action must provide understandable feedback.
 
 ### Loading
 
-Use skeletons for content surfaces and pending labels for mutations where appropriate.
+Use skeletons for page-level content and concise pending labels for mutations.
+
+For AI operations, state what is happening:
+
+- `Building your roadmap...`
+- `Preparing this lesson...`
+- `Adjusting the next steps...`
 
 ### Empty
 
-Empty states should explain what is missing and what the learner can do next.
+Explain both the state and next action.
 
 ### Error
 
-Show a concise recoverable error message. Provider-specific diagnostics belong in server logs, not raw in the learner interface.
+Provide a recoverable message. Provider diagnostics belong in server logs.
 
 ### Success
 
-Use toasts for short mutation confirmation; persistent product state should also be visible in the actual page after query refresh.
+Use toasts for short confirmation, but important state changes must also be visible in the persistent UI.
 
-### AI latency
+## 14. Accessibility
 
-A pending AI state should explain what is happening without pretending the result is guaranteed. Examples such as `Creating...` or `Thinking through ...` are appropriate.
-
-## 7. Accessibility
-
-- Preserve visible focus states from shared primitives.
+- Maintain visible keyboard focus.
 - Use semantic buttons for actions and links for navigation.
-- Associate form labels with controls.
-- Avoid click handlers on non-interactive elements when a button is appropriate.
-- Do not encode completion/error state by color alone; pair it with iconography or text.
-- Preserve keyboard usability when composing Drawer, Tabs, Dialog, and similar primitives.
-- Keep muted text sufficiently legible in both themes.
+- Associate labels and form controls correctly.
+- Never communicate completion, locking, or error by color alone.
+- Maintain readable contrast in both themes.
+- Preserve keyboard behavior of Drawer, Tabs, Dialog, and similar primitives.
+- Do not use disabled-looking elements that remain interactable.
 
-## 8. React and Component Conventions
+## 15. Shared UI and Component Boundaries
 
-### Product-specific components
+Reusable primitives belong in `packages/ui`. Product-specific composition belongs in `apps/web`.
 
-Keep them under `apps/web/src/components` or close to their route when appropriate.
+Prefer existing shadcn-based primitives before creating new low-level components.
 
-### State ownership
+Do not move a course-specific component into the shared UI package merely because it is large.
+
+## 16. React and State Conventions
 
 Use local React state for transient interface state such as:
 
 - selected node;
-- active tab;
-- unsent textarea content;
-- drawer step.
+- active coach tab;
+- drawer step;
+- unsent text input.
 
-Use TanStack Query/tRPC state for server-owned data such as:
+Use tRPC/TanStack Query for server-owned data such as:
 
 - roadmaps;
-- lessons;
-- tutor histories;
+- node content;
+- tutor history;
 - validation sessions;
-- completion status.
+- progress;
+- adaptive state.
 
-Avoid copying server state into local state unless there is a concrete editing/optimistic interaction need.
+After state-changing mutations, update or invalidate only the affected queries.
 
-### Mutations
+Do not duplicate authoritative server state into local React state without a concrete interaction reason.
 
-After a mutation:
-
-- invalidate the narrowest affected queries; or
-- update cached data directly when the mutation returns the authoritative next state.
-
-Do not rely on stale UI state after a progress-changing mutation.
-
-### Large components
-
-Extract pieces when doing so creates a meaningful boundary, improves testability, or removes genuine duplication. Do not split components mechanically just to meet a line-count target.
-
-`course-workspace.tsx` is currently large; future decomposition should preserve its data-flow clarity rather than scattering state across many wrappers.
-
-## 9. TypeScript
+## 17. TypeScript, API, and Data Boundaries
 
 - Prefer explicit domain types or types inferred from Zod/Drizzle/tRPC.
 - Avoid new broad `any` usage.
-- Use unions/enums for constrained state rather than free-form strings when the domain is known.
-- Runtime validation is still required at external boundaries even when TypeScript types exist.
-- Prefer readable function signatures over opaque object bags with unknown fields.
-- Do not silence errors with type assertions solely to make checks pass.
+- Validate external and AI-generated data at runtime.
+- Use `protectedProcedure` for learner-owned actions.
+- Derive ownership from authenticated `ctx.user.id`, never a client-submitted user ID.
+- Keep mastery, locking, stagnation, and recalibration rules in the server/business layer so they cannot be bypassed by alternative clients.
+- Use database transactions when multi-row learning-state changes must succeed atomically.
 
-### Formatting
+## 18. AI Prompt Conventions
 
-The codebase contains mixed quote/indent conventions between areas. Preserve the local file convention and let project tooling drive formatting. Do not generate a repository-wide formatting diff as part of a feature task.
+AI prompts are part of the product contract.
 
-## 10. Imports and Package Boundaries
+For structured generation:
 
-Use workspace package imports where the package already exposes the capability:
-
-```ts
-import { ... } from '@gemastik/ui/...'
-import { ... } from '@gemastik/db/...'
-import { ... } from '@gemastik/env/...'
-```
-
-Do not reach deep across package internals when a public package entry point exists.
-
-Keep import changes scoped; historical package naming should not be opportunistically renamed.
-
-## 11. tRPC and API Style
-
-### Authentication
-
-Use `protectedProcedure` for learner-owned product actions.
-
-### Input validation
-
-Define Zod input schemas at the API boundary. Trim/min/max constraints should reflect actual product requirements.
-
-### Ownership
-
-Never use a client-submitted user ID as authorization. Use authenticated `ctx.user.id` and constrain owned records accordingly.
-
-### Business rules
-
-Rules such as node completion, recalibration eligibility, and roadmap replacement belong in the API/service layer so they cannot be bypassed by alternative clients.
-
-### Transactions
-
-Use transactions when a mutation spans related rows and partial success would corrupt product state.
-
-### Errors
-
-Use concise domain errors at API boundaries. Avoid exposing database/provider implementation details directly to the learner.
-
-## 12. Database Style
-
-The current Drizzle convention is:
-
-- camelCase property names in TypeScript;
-- snake_case PostgreSQL column/table names;
-- explicit foreign keys;
-- indexes around common ownership/relationship access paths;
-- JSONB for bounded structured data such as lesson content, metadata, and chat histories.
-
-Do not put arbitrary unvalidated blobs into JSONB merely to avoid schema decisions. Keep JSON shapes typed and validated where they cross AI/API boundaries.
-
-## 13. AI Prompt Style
-
-AI prompts are part of the product contract and should be treated as code.
-
-### Structured generation
-
-For roadmap, lesson, and validation generation:
-
-- explicitly state `Respond ONLY with valid JSON` or equivalent;
-- show the expected schema;
+- require valid JSON;
+- define the expected schema;
 - constrain enum values;
-- specify key behavioral constraints;
-- validate returned JSON with Zod before using it.
+- validate outputs before persistence.
 
-### Tutor prompts
+### Tutor
 
-Tutor context should be bounded to the active learning situation:
+Tutor should explain and unblock, not grade.
 
-- overall goal;
-- node title/type/difficulty/time;
-- success criteria;
-- relevant lesson content;
-- current tutor history.
+### Socratic Validator
 
-Keep the Tutor non-evaluative.
+Validator may evaluate understanding and produce internal learning signals. Learner-facing copy should translate those signals into meaningful feedback.
 
-### Validator prompts
+### Recalibration
 
-The Validator may score understanding, stumble state, and sentiment. Scoring rules should be explicit and stable enough that changes can be reasoned about and tested.
+Recalibration must preserve the original learning goal and completed work while reducing conceptual jumps or adding prerequisites.
 
-### Recalibration prompts
+## 19. Naming
 
-Preserve the goal and produce a replacement path for unfinished work. Prefer prerequisite bridging or reduced conceptual jumps over simply changing wording.
-
-### Prompt changes
-
-When changing scoring thresholds, output schemas, or recalibration semantics, update corresponding docs and verify downstream parsing/database assumptions.
-
-## 14. Naming
-
-### Product concepts
-
-Preferred terms:
+Preferred product concepts:
 
 - course
 - roadmap
-- roadmap node / step
+- node / step
+- prerequisite
 - lesson
 - tutor
 - Socratic validation
-- competency score
+- mastery
+- stagnation
+- remediation
 - recalibration
 - learning goal
 
-Avoid introducing multiple names for the same concept without a product reason.
+Avoid adding parallel names such as `module`, `chapter`, and `unit` for the same backend concept unless the domain model actually changes.
 
-### IDs and fields
+## 20. Patterns to Avoid
 
-Use existing domain naming rather than creating aliases such as `module`, `unit`, or `chapter` for `roadmapNode` inside backend logic unless the model actually changes.
-
-## 15. Documentation Style
-
-Project docs should distinguish:
-
-- implemented behavior;
-- partial integration;
-- schema-only groundwork;
-- planned/aspirational design.
-
-Do not use future design documents as evidence of completed functionality.
-
-Prefer concrete procedure/table/component names when they help future maintainers verify a claim.
-
-## 16. Avoid These Patterns
-
-- hard-coded user IDs;
-- client-only authorization;
-- unvalidated Gemini JSON;
-- fake-success fallback after a failed state-changing AI operation;
-- generating the same persisted lesson every visit;
-- broad architecture rewrites for a small feature;
-- adding large dependencies for trivial UI behavior;
-- arbitrary rounded cards that break the current square visual system;
-- hard-coded colors that ignore theme tokens;
+- fully square technical-dashboard styling across the entire product;
+- arbitrary `rounded-2xl` cards mixed with square components;
+- dense KPI grids on learner pages;
+- card-inside-card visual fragmentation;
+- giving roadmap, lesson, tutor, and validation equal visual weight;
+- raw sentiment/stumble/stagnation telemetry as primary learner feedback;
+- unlocked future nodes when prerequisites are part of the learning contract;
+- decorative AI gradients and excessive purple accents;
+- AI-generated resource descriptions presented as verified sources;
 - mixed-language UI copy introduced accidentally;
-- overclaiming RLS, cognitive profiling, artifact verification, or fully automatic recalibration before those flows exist end to end.
+- client-only authorization or mastery rules;
+- unvalidated Gemini JSON;
+- overclaiming adaptive behavior that is not connected end to end.
+
+## 21. Design Review Checklist
+
+Before merging learner-facing UI changes, verify:
+
+1. What is the single primary action on this screen?
+2. Can the learner identify current progress and next step quickly?
+3. Are future/prerequisite states visually clear?
+4. Is any internal telemetry exposed without helping the learner decide what to do?
+5. Can a border, badge, card, or label be removed without losing meaning?
+6. Does the layout remain usable in light and dark themes?
+7. Does the UI reflect actual server state?
+8. Does the feature reduce rather than add avoidable choices?
+
+If the answer to the last question is no, the interface is working against Synara's product goal.
