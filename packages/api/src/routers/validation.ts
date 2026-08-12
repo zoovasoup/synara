@@ -1,40 +1,13 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { aiService } from "../services/ai.service";
 import { roadmapNodes, learningRoadmaps } from "@gemastik/db/schema/learning";
 import { socraticSessions } from "@gemastik/db/schema/validation";
 import { eq as drizzleEq, and as drizzleAnd } from "drizzle-orm";
 import { nanoid } from "nanoid";
-
-async function syncRoadmapCompletion({
-	ctx,
-	roadmapId,
-}: {
-	ctx: { db: typeof import("@gemastik/db").db; user: { id: string } };
-	roadmapId: string;
-}) {
-	const nodes = await ctx.db.query.roadmapNodes.findMany({
-		where: drizzleAnd(
-			drizzleEq(roadmapNodes.roadmapId, roadmapId),
-			drizzleEq(roadmapNodes.userId, ctx.user.id),
-		),
-	});
-
-	const isCompleted =
-		nodes.length > 0 && nodes.every((node) => node.isCompleted);
-
-	await ctx.db
-		.update(learningRoadmaps)
-		.set({ currentStatus: isCompleted ? "completed" : "active" })
-		.where(
-			drizzleAnd(
-				drizzleEq(learningRoadmaps.id, roadmapId),
-				drizzleEq(learningRoadmaps.userId, ctx.user.id),
-			),
-		);
-
-	return isCompleted;
-}
+import { getProgressionAfterCompletion } from "../domain/node-progression";
+import { getAccessibleRoadmapNode } from "../services/node-access.service";
 
 export const validationRouter = createTRPCRouter({
 	getSocraticSession: protectedProcedure
@@ -44,6 +17,8 @@ export const validationRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ ctx, input }) => {
+			await getAccessibleRoadmapNode({ ctx, nodeId: input.nodeId });
+
 			const session = await ctx.db.query.socraticSessions.findFirst({
 				where: drizzleAnd(
 					drizzleEq(socraticSessions.nodeId, input.nodeId),
@@ -62,17 +37,23 @@ export const validationRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const node = await ctx.db.query.roadmapNodes.findFirst({
-				where: drizzleAnd(
-					drizzleEq(roadmapNodes.id, input.nodeId),
-					drizzleEq(roadmapNodes.userId, ctx.user.id),
-				),
+			const { node, roadmap } = await getAccessibleRoadmapNode({
+				ctx,
+				nodeId: input.nodeId,
 			});
 
-			if (!node) throw new Error("Node tidak ditemukan.");
+			if (node.isCompleted) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "This step is already completed.",
+				});
+			}
 
 			let session = await ctx.db.query.socraticSessions.findFirst({
-				where: drizzleEq(socraticSessions.nodeId, input.nodeId),
+				where: drizzleAnd(
+					drizzleEq(socraticSessions.nodeId, input.nodeId),
+					drizzleEq(socraticSessions.userId, ctx.user.id),
+				),
 			});
 
 			const updatedHistory = session
@@ -106,6 +87,10 @@ export const validationRouter = createTRPCRouter({
 				JSON.stringify(updatedHistory),
 				systemInstruction,
 			);
+			const isMastered = aiResult.competency_score >= 80;
+			const masteryProgression = isMastered
+				? getProgressionAfterCompletion(roadmap.nodes, node.id)
+				: { nextNodeId: node.id, roadmapCompleted: false };
 
 			return await ctx.db.transaction(async (tx) => {
 				const totalStumbles =
@@ -138,20 +123,35 @@ export const validationRouter = createTRPCRouter({
 						},
 					});
 
-				if (aiResult.competency_score >= 80) {
+				if (isMastered) {
 					await tx
 						.update(roadmapNodes)
 						.set({ isCompleted: true, completedAt: new Date() })
 						.where(drizzleEq(roadmapNodes.id, node.id));
 
-					await syncRoadmapCompletion({ ctx, roadmapId: node.roadmapId });
+					await tx
+						.update(learningRoadmaps)
+						.set({
+							currentStatus: masteryProgression.roadmapCompleted
+								? "completed"
+								: "active",
+						})
+						.where(
+							drizzleAnd(
+								drizzleEq(learningRoadmaps.id, node.roadmapId),
+								drizzleEq(learningRoadmaps.userId, ctx.user.id),
+							),
+						);
 				}
 
 				// --- Logic Rekalsibrasi (Threshold: Stumble > 3 atau Sentiment < 0.3) ---
 				const isStuck = totalStumbles > 3;
 				const isFrustrated = (aiResult.sentiment_score ?? 1) < 0.3;
 
-				if (isStuck || isFrustrated) {
+				if (
+					!masteryProgression.roadmapCompleted &&
+					(isStuck || isFrustrated)
+				) {
 					await tx
 						.update(learningRoadmaps)
 						.set({
@@ -163,10 +163,18 @@ export const validationRouter = createTRPCRouter({
 						})
 						.where(drizzleEq(learningRoadmaps.id, node.roadmapId));
 
-					return { ...aiResult, recalibrationRequired: true };
+					return {
+						...aiResult,
+						...masteryProgression,
+						recalibrationRequired: true,
+					};
 				}
 
-				return { ...aiResult, recalibrationRequired: false };
+				return {
+					...aiResult,
+					...masteryProgression,
+					recalibrationRequired: false,
+				};
 			});
 		}),
 });

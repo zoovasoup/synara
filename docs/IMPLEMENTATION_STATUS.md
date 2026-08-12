@@ -25,6 +25,7 @@ The audit was performed against the implementation state on `master` immediately
 | Draft fallback on generation failure | Implemented | Guided creation can save a roadmap with zero nodes and `generationStatus: draft` | Recovery UI beyond the draft state is still limited. |
 | Persistent roadmaps and nodes | Implemented | PostgreSQL + Drizzle | Ownership is tied to authenticated user IDs. |
 | Node progress tracking | Implemented | Completion state and completion timestamp stored per node | Roadmap is marked completed when all nodes are complete. |
+| Linear prerequisite locking | Implemented | Access is derived from ordered `orderIndex` + `isCompleted` state and enforced by node-specific learner procedures | Completed nodes are reviewable, the first incomplete node is current, and later incomplete nodes are locked; this is not a general dependency graph. |
 | Lazy lesson generation | Implemented | Lesson generated when selected/needed and stored in node JSON | Avoids repeated AI calls after persistence. |
 | Lesson summary/concepts/steps/exercises/resources | Implemented | Structured lesson JSON rendered in course workspace | Current resources are descriptors, not curated external links. |
 | Contextual AI tutor | Implemented | Tutor receives goal, node, success criteria, lesson context | Tutor explicitly does not grade or mark progress. |
@@ -37,8 +38,8 @@ The audit was performed against the implementation state on `master` immediately
 | Recalibration trigger | Implemented | Roadmap becomes `needs_recalibration` at stumble > 3 or sentiment < 0.3 | This differs from the cumulative formula in `document.md`. |
 | Backend recalibration mutation | Implemented | Incomplete nodes replaced; completed nodes preserved | Uses failed-node Socratic context. |
 | Learner-facing recalibration execution | Partial | UI displays warning toast when recalibration is required | Course workspace does not currently call `learning.recalibrate`. |
-| Manual node completion | Implemented | `finishNode` + UI button | Bypasses Socratic validation and conflicts with validation-first product copy. |
-| Reopen completed node | Implemented | `reopenNode` + UI action | Recomputes roadmap completion status. |
+| Manual node completion | Deprecated learner flow | `finishNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | The retained mutation also rejects future locked nodes. |
+| Reopen completed node | Deprecated learner flow | `reopenNode` remains as a protected compatibility mutation, but the learner UI no longer exposes it | Completed nodes remain readable and tutor-accessible without reopening. |
 | Cognitive profile storage | Schema-only | `user_cognitive_profiles` table exists | Not read or updated by current learning flows. |
 | Learning activity logs | Schema-only | `learning_logs` table exists | No current API flow writes or consumes logs. |
 | Micro-artifact records | Schema-only | `micro_artifacts` table exists | No submission, review, or UI workflow. |
@@ -57,7 +58,7 @@ Sign up / sign in
   -> Create course
   -> Gemini roadmap generation
   -> Open course
-  -> Select node
+  -> Open the first incomplete/current node
   -> Lazy lesson generation + persistence
   -> Ask contextual tutor questions
   -> Enter Socratic validation
@@ -95,17 +96,9 @@ The key missing piece is the learner-facing bridge between the warning and that 
 
 ## Product / Implementation Contradictions
 
-### 1. Validation-first completion vs manual completion
+### 1. Validation-first completion and legacy API compatibility
 
-The workspace tells the learner that passing validation is what finishes a step, but also exposes `Finish manually`. The backend likewise allows direct completion.
-
-This must become an explicit product choice rather than accidental dual behavior:
-
-- keep manual completion as a legitimate learner override;
-- restrict it to development/demo use; or
-- remove it and make validated completion authoritative.
-
-Until this is decided, claims such as "all competency is validated through Socratic assessment" are too strong.
+The normal learner workspace now completes the current node only through Socratic Validation and removes both manual completion and reopen actions. The protected `finishNode` and `reopenNode` mutations remain temporarily for compatibility, so they should be removed separately once external usage risk is resolved.
 
 ### 2. Adaptive cognitive memory vs recent-session adaptation
 
@@ -130,9 +123,9 @@ The table exists, but no active API/UI flow verifies repositories, files, or liv
 3. Refresh the roadmap after successful replacement.
 4. Decide whether recalibration needs learner confirmation.
 
-### P0 — Resolve completion authority
+### P1 — Retire legacy completion mutations
 
-Decide whether manual completion remains part of Synara. Align backend rules, UI actions, and product copy with the chosen model.
+Confirm whether any non-workspace consumers still require `finishNode` or `reopenNode`, then remove them if compatibility is no longer needed.
 
 ### P1 — Make adaptive data real
 
@@ -158,6 +151,8 @@ Historical names remain in package namespaces and prompts (`@gemastik/*`, `gemas
 ## Testing and Quality Status
 
 No comprehensive automated product test suite was identified during this documentation audit. There are development/testing artifacts in the repository, but they should not be treated as evidence of full regression coverage.
+
+A focused progression check now covers the derived completed/current/locked states, locked-node server access contract, next-node unlocking, final roadmap completion, and zero-node draft behavior. It is not a full database-backed router integration suite.
 
 For meaningful feature changes, at minimum verify:
 

@@ -72,12 +72,12 @@ Do not move product-specific components into `packages/ui` merely to reduce loca
 - `create` — five-answer onboarding -> roadmap; allows draft fallback when AI generation fails.
 - `generate` — direct goal -> roadmap; generation failure is surfaced.
 - `list` / `getDashboard` — learner roadmaps.
-- `getById` — learner-owned roadmap with ordered nodes.
-- `getNodeContent` — lazy generate and persist lesson content.
+- `getById` — learner-owned roadmap with ordered nodes and derived progression state.
+- `getNodeContent` — lazy generate and persist lesson content for an accessible node.
 - `getTutorSession` — persisted tutor history.
-- `askTutor` — contextual AI tutor with persisted history.
-- `finishNode` — manual completion.
-- `reopenNode` — reopen completed node.
+- `askTutor` — contextual AI tutor with persisted history for an accessible node.
+- `finishNode` — legacy manual-completion mutation; no normal learner UI entry point.
+- `reopenNode` — legacy reopen mutation; no normal learner UI entry point.
 - `recalibrate` — replace incomplete nodes when roadmap is `needs_recalibration`.
 
 ### `validation`
@@ -88,6 +88,7 @@ Do not move product-specific components into `packages/ui` merely to reduce loca
 Current validation behavior:
 
 - competency >= 80 -> node completes;
+- completion exposes the next incomplete node according to `orderIndex`;
 - cumulative stumble count > 3 OR latest sentiment < 0.3 -> roadmap becomes `needs_recalibration`.
 
 ## 6. Core Database Tables
@@ -122,6 +123,10 @@ Recalibration may change unfinished path nodes but must not silently replace the
 
 Recalibration must preserve completed nodes and replace only unfinished work unless a product requirement explicitly changes this behavior.
 
+### Linear mastery progression
+
+Roadmap prerequisites are currently linear by `orderIndex`. Completed nodes remain accessible for review, the first incomplete node is current and accessible, and later incomplete nodes are locked. This state is derived from node order and completion rather than stored in a database column. Learner-facing node procedures must enforce the same access rule on the server.
+
 ### Tutor != Validator
 
 Tutor guidance and Socratic validation are deliberately separate responsibilities.
@@ -154,9 +159,9 @@ Use transactions when a business action mutates multiple related records, especi
 
 The backend mutation exists. `course-workspace.tsx` currently only warns when recalibration is required; it does not call `learning.recalibrate`.
 
-### Manual completion bypasses validation
+### Legacy completion mutations remain
 
-The UI has `Finish manually`, and `learning.finishNode` directly completes a node. Do not describe the current system as validation-only unless this behavior is changed.
+The normal learner UI completes nodes only through Socratic Validation and no longer exposes `Finish manually` or `Reopen step`. The `learning.finishNode` and `learning.reopenNode` procedures remain temporarily for compatibility, are protected by the linear node-access rule, and should not be treated as normal learner flows.
 
 ### Cognitive data is not active
 
@@ -260,7 +265,7 @@ For any meaningful code change:
 Unless the active task says otherwise, the largest current product gaps are:
 
 1. connect the learner UI to backend recalibration;
-2. decide whether manual completion remains valid;
+2. decide whether the legacy manual completion/reopen mutations can be removed entirely;
 3. align recalibration UX, copy, and status handling;
 4. only then expand long-term cognitive profiling/logging if it remains in scope.
 

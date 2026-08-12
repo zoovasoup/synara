@@ -105,7 +105,8 @@ Primary responsibilities:
 - roadmap detail queries;
 - lazy lesson-content generation;
 - persistent tutor conversations;
-- manual node completion/reopening;
+- derived linear node-access enforcement;
+- legacy manual node completion/reopening mutations (not exposed in the learner UI);
 - roadmap completion synchronization;
 - backend roadmap recalibration.
 
@@ -241,8 +242,14 @@ Learner validation message
   -> Gemini structured evaluation
   -> persist response + scores
   -> if competency >= 80: complete node
+  -> derive and expose the next incomplete node by orderIndex
+  -> if the final node completed: mark the roadmap completed in the same transaction
   -> if stumble > 3 OR sentiment < 0.3: mark roadmap needs_recalibration
 ```
+
+### Linear node access
+
+`packages/api/src/domain/node-progression.ts` derives three states from ordered nodes: `completed`, `current`, and `locked`. `packages/api/src/services/node-access.service.ts` applies that rule with authenticated ownership checks before learner-facing lesson, tutor, validation, and legacy node mutations run. No lock state is persisted in the database, and this MVP model is not a general dependency graph.
 
 The current validator returns:
 
@@ -401,7 +408,7 @@ See `STYLE_GUIDE.md` for implementation conventions.
 3. Learning logs are not populated.
 4. Micro-artifact validation is schema-only.
 5. RLS is documented historically but not evidenced in repository migrations/policies.
-6. Manual completion bypasses Socratic validation.
+6. Legacy manual completion/reopen API mutations remain for compatibility but are not exposed by the learner workspace.
 7. Several historical names remain in package names/prompts (`gemastik`, `Gradio`).
 8. `course-workspace.tsx` is large and currently combines data orchestration and multiple UI concerns; future refactoring may improve maintainability, but functionality should take priority over cosmetic decomposition.
 

@@ -8,6 +8,8 @@ import { nanoid } from "nanoid";
 import { aiService } from "../services/ai.service";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { roadmapService } from "../services/roadmap.service";
+import { deriveNodeProgression } from "../domain/node-progression";
+import { getAccessibleRoadmapNode } from "../services/node-access.service";
 
 const contentTypeSchema = z.enum(["video", "reading", "hands-on", "socratic"]);
 
@@ -400,28 +402,11 @@ export const learningRouter = createTRPCRouter({
 	getNodeContent: protectedProcedure
 		.input(z.object({ roadmapId: z.string().min(1), nodeId: z.string().min(1) }))
 		.query(async ({ ctx, input }) => {
-			const roadmap = await ctx.db.query.learningRoadmaps.findFirst({
-				where: and(
-					eq(learningRoadmaps.id, input.roadmapId),
-					eq(learningRoadmaps.userId, ctx.user.id),
-				),
+			const { roadmap, node } = await getAccessibleRoadmapNode({
+				ctx,
+				roadmapId: input.roadmapId,
+				nodeId: input.nodeId,
 			});
-
-			if (!roadmap) {
-				throw new Error("Roadmap tidak ditemukan.");
-			}
-
-			const node = await ctx.db.query.roadmapNodes.findFirst({
-				where: and(
-					eq(roadmapNodes.id, input.nodeId),
-					eq(roadmapNodes.roadmapId, input.roadmapId),
-					eq(roadmapNodes.userId, ctx.user.id),
-				),
-			});
-
-			if (!node) {
-				throw new Error("Node tidak ditemukan.");
-			}
 
 			const lessonContent = await ensureLessonContent({
 				ctx,
@@ -438,6 +423,8 @@ export const learningRouter = createTRPCRouter({
 	getTutorSession: protectedProcedure
 		.input(z.object({ nodeId: z.string().min(1) }))
 		.query(async ({ ctx, input }) => {
+			await getAccessibleRoadmapNode({ ctx, nodeId: input.nodeId });
+
 			const session = await ctx.db.query.tutorSessions.findFirst({
 				where: and(
 					eq(tutorSessions.nodeId, input.nodeId),
@@ -457,28 +444,11 @@ export const learningRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const roadmap = await ctx.db.query.learningRoadmaps.findFirst({
-				where: and(
-					eq(learningRoadmaps.id, input.roadmapId),
-					eq(learningRoadmaps.userId, ctx.user.id),
-				),
+			const { roadmap, node } = await getAccessibleRoadmapNode({
+				ctx,
+				roadmapId: input.roadmapId,
+				nodeId: input.nodeId,
 			});
-
-			if (!roadmap) {
-				throw new Error("Roadmap tidak ditemukan.");
-			}
-
-			const node = await ctx.db.query.roadmapNodes.findFirst({
-				where: and(
-					eq(roadmapNodes.id, input.nodeId),
-					eq(roadmapNodes.roadmapId, input.roadmapId),
-					eq(roadmapNodes.userId, ctx.user.id),
-				),
-			});
-
-			if (!node) {
-				throw new Error("Node tidak ditemukan.");
-			}
 
 			const lessonContent = await ensureLessonContent({
 				ctx,
@@ -538,17 +508,11 @@ export const learningRouter = createTRPCRouter({
 	finishNode: protectedProcedure
 		.input(z.object({ roadmapId: z.string().min(1), nodeId: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
-			const node = await ctx.db.query.roadmapNodes.findFirst({
-				where: and(
-					eq(roadmapNodes.id, input.nodeId),
-					eq(roadmapNodes.roadmapId, input.roadmapId),
-					eq(roadmapNodes.userId, ctx.user.id),
-				),
+			await getAccessibleRoadmapNode({
+				ctx,
+				roadmapId: input.roadmapId,
+				nodeId: input.nodeId,
 			});
-
-			if (!node) {
-				throw new Error("Node tidak ditemukan.");
-			}
 
 			await ctx.db
 				.update(roadmapNodes)
@@ -563,17 +527,11 @@ export const learningRouter = createTRPCRouter({
 	reopenNode: protectedProcedure
 		.input(z.object({ roadmapId: z.string().min(1), nodeId: z.string().min(1) }))
 		.mutation(async ({ ctx, input }) => {
-			const node = await ctx.db.query.roadmapNodes.findFirst({
-				where: and(
-					eq(roadmapNodes.id, input.nodeId),
-					eq(roadmapNodes.roadmapId, input.roadmapId),
-					eq(roadmapNodes.userId, ctx.user.id),
-				),
+			await getAccessibleRoadmapNode({
+				ctx,
+				roadmapId: input.roadmapId,
+				nodeId: input.nodeId,
 			});
-
-			if (!node) {
-				throw new Error("Node tidak ditemukan.");
-			}
 
 			await ctx.db
 				.update(roadmapNodes)
@@ -613,6 +571,6 @@ export const learningRouter = createTRPCRouter({
 			});
 
 			if (!data) throw new Error("Roadmap tidak ditemukan.");
-			return data;
+			return { ...data, nodes: deriveNodeProgression(data.nodes) };
 		}),
 });

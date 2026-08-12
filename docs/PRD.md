@@ -167,11 +167,11 @@ When a roadmap needs recalibration, the system should preserve completed nodes a
 
 **Current state:** Backend implemented; end-to-end learner UX is incomplete because the course workspace does not currently invoke the recalibration mutation.
 
-### FR-11 Manual node completion
+### FR-11 Linear mastery progression
 
-The current workspace allows a learner to mark an unfinished node complete manually and reopen it later.
+The learner workspace must derive prerequisite access from roadmap `orderIndex`: completed nodes remain reviewable, the first incomplete node is current, and every later incomplete node is locked. Passing Socratic Validation at competency >= 80 completes the current node and exposes the next one.
 
-**Current state:** Implemented, but this behavior conflicts with the stronger product principle that validation should be the authoritative completion mechanism. This is an explicit product decision to resolve before the completion model is considered final.
+**Current state:** Implemented. Manual completion and reopen actions are no longer exposed in the normal learner UI; compatibility mutations remain temporarily in the API.
 
 ## 8. Planned / Incomplete Capabilities
 
@@ -232,7 +232,7 @@ The current implementation satisfies items 1-6 and the backend portion of item 7
 
 ## 11. Product Decisions Still Open
 
-1. Should manual completion remain available, be restricted to development/demo mode, or be removed in favor of validation-only completion?
+1. Can the legacy manual completion and reopen API mutations be removed after compatibility usage is confirmed?
 2. Should recalibration run automatically or require explicit learner confirmation?
 3. What learner history should be retained when incomplete nodes are replaced?
 4. How should cognitive-profile data influence future roadmap generation once it is wired in?

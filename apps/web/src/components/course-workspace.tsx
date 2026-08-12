@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gema
 import { ScrollArea } from '@gemastik/ui/components/scroll-area'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@gemastik/ui/components/tabs'
+import { cn } from '@gemastik/ui/lib/utils'
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeftIcon,
@@ -19,7 +20,7 @@ import {
   CircleCheckBigIcon,
   CircleDashedIcon,
   Clock3Icon,
-  RotateCcwIcon,
+  LockIcon,
   SendIcon,
   SparklesIcon,
 } from 'lucide-react'
@@ -45,12 +46,14 @@ type LessonContent = {
 type CourseNode = {
   id: string
   title: string
+  orderIndex: number
   contentType: string
   estimatedTime: number
   successCriteria: string[]
   difficultyLevel: number
   isCompleted: boolean
   completedAt: string | Date | null
+  progressionState: 'completed' | 'current' | 'locked'
 }
 
 type CourseDetail = {
@@ -103,15 +106,27 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
   const courseQuery = useQuery(trpc.learning.getById.queryOptions({ id: courseId })) as UseQueryResult<CourseDetail, Error>
 
   React.useEffect(() => {
-    if (!courseQuery.data || selectedNodeId) {
+    if (!courseQuery.data) {
       return
     }
 
-    const nextNode = courseQuery.data.nodes.find((node) => !node.isCompleted) ?? courseQuery.data.nodes[0]
-    setSelectedNodeId(nextNode?.id ?? null)
+    const selectedNode = courseQuery.data.nodes.find((node) => node.id === selectedNodeId)
+    if (selectedNode && selectedNode.progressionState !== 'locked') {
+      return
+    }
+
+    const defaultNode =
+      courseQuery.data.nodes.find((node) => node.progressionState === 'current') ??
+      courseQuery.data.nodes.find((node) => node.progressionState === 'completed')
+    setSelectedNodeId(defaultNode?.id ?? null)
   }, [courseQuery.data, selectedNodeId])
 
-  const selectedNode = courseQuery.data?.nodes.find((node) => node.id === selectedNodeId) ?? courseQuery.data?.nodes[0] ?? null
+  const selectedCandidate = courseQuery.data?.nodes.find((node) => node.id === selectedNodeId)
+  const selectedNode =
+    (selectedCandidate?.progressionState !== 'locked' ? selectedCandidate : null) ??
+    courseQuery.data?.nodes.find((node) => node.progressionState === 'current') ??
+    courseQuery.data?.nodes.find((node) => node.progressionState === 'completed') ??
+    null
 
   const lessonContentQuery = useQuery({
     ...trpc.learning.getNodeContent.queryOptions(selectedNode ? { roadmapId: courseId, nodeId: selectedNode.id } : skipToken),
@@ -130,8 +145,6 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
 
   const tutorChat = useMutation(trpc.learning.askTutor.mutationOptions())
   const validationChat = useMutation(trpc.validation.submitSocratic.mutationOptions())
-  const finishNode = useMutation(trpc.learning.finishNode.mutationOptions())
-  const reopenNode = useMutation(trpc.learning.reopenNode.mutationOptions())
 
   if (courseQuery.isPending) {
     return (
@@ -230,8 +243,14 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       ])
 
       if (result.competency_score >= 80) {
+        if (result.nextNodeId) {
+          setSelectedNodeId(result.nextNodeId)
+        }
+
         toast.success('Step completed through validation', {
-          description: 'The node now counts toward roadmap progress.',
+          description: result.roadmapCompleted
+            ? 'All roadmap steps are now complete.'
+            : 'The next roadmap step is now accessible.',
         })
       } else {
         toast.message('Validation submitted', {
@@ -248,50 +267,6 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
       const messageText = error instanceof Error ? error.message : 'Unable to validate this node.'
       toast.error(messageText)
       setDraftValidationMessage(message)
-    }
-  }
-
-  const handleReopenNode = async () => {
-    if (!selectedNode || reopenNode.isPending) {
-      return
-    }
-
-    try {
-      await reopenNode.mutateAsync({
-        roadmapId: course.id,
-        nodeId: selectedNode.id,
-      })
-
-      await refreshCourseData()
-      toast.success('Step reopened', {
-        description: 'You can validate this node again when you are ready.',
-      })
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : 'Unable to reopen this node.'
-      toast.error(messageText)
-    }
-  }
-
-  const handleFinishNode = async () => {
-    if (!selectedNode || finishNode.isPending) {
-      return
-    }
-
-    try {
-      const result = await finishNode.mutateAsync({
-        roadmapId: course.id,
-        nodeId: selectedNode.id,
-      })
-
-      await refreshCourseData()
-      toast.success(result.roadmapCompleted ? 'Step finished and roadmap completed' : 'Step marked complete', {
-        description: result.roadmapCompleted
-          ? 'All roadmap steps are now complete.'
-          : 'You can still reopen this step later if needed.',
-      })
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : 'Unable to mark this node complete.'
-      toast.error(messageText)
     }
   }
 
@@ -320,7 +295,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
         <Card className='flex min-h-0 flex-col xl:h-full'>
           <CardHeader>
             <CardTitle>Full roadmap</CardTitle>
-            <CardDescription>Select a step to load its lesson, tutor thread, and validation history.</CardDescription>
+            <CardDescription>Follow the roadmap in order. Completed steps remain available for review.</CardDescription>
           </CardHeader>
           <CardContent className='min-h-0 flex-1 p-0'>
             <ScrollArea className='h-full w-full'>
@@ -332,20 +307,37 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                 ) : (
                   course.nodes.map((node, index) => {
                     const isSelected = node.id === selectedNode?.id
+                    const isCurrent = node.progressionState === 'current'
+                    const isLocked = node.progressionState === 'locked'
 
                     return (
                       <button
                         key={node.id}
                         type='button'
                         onClick={() => setSelectedNodeId(node.id)}
-                        className={`flex w-full flex-col gap-2 border px-3 py-3 text-left transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-border/70 hover:border-primary/40 hover:bg-muted/40'}`}
+                        disabled={isLocked}
+                        aria-current={isCurrent ? 'step' : undefined}
+                        title={isLocked ? 'Complete the previous step first.' : undefined}
+                        className={cn(
+                          'flex w-full flex-col gap-2 border px-3 py-3 text-left transition-colors',
+                          node.progressionState === 'completed' && 'border-border/60 bg-muted/20 hover:border-primary/40 hover:bg-muted/40',
+                          isCurrent && 'border-primary bg-primary/10 hover:bg-primary/15',
+                          isLocked && 'cursor-not-allowed border-border/50 bg-muted/20 text-muted-foreground opacity-70',
+                          isSelected && 'border-primary bg-primary/5',
+                        )}
                       >
                         <div className='flex items-start justify-between gap-3'>
                           <div>
                             <p className='text-[11px] uppercase tracking-[0.2em] text-muted-foreground'>Step {index + 1}</p>
                             <p className='mt-1 text-sm font-medium text-foreground'>{node.title}</p>
                           </div>
-                          {node.isCompleted ? <CircleCheckBigIcon className='mt-0.5 size-4 text-primary' /> : <CircleDashedIcon className='mt-0.5 size-4 text-muted-foreground' />}
+                          {node.progressionState === 'completed' ? (
+                            <CircleCheckBigIcon className='mt-0.5 size-4 text-primary' aria-label='Completed' />
+                          ) : isCurrent ? (
+                            <CircleDashedIcon className='mt-0.5 size-4 text-primary' aria-label='Current step' />
+                          ) : (
+                            <LockIcon className='mt-0.5 size-4' aria-label='Locked' />
+                          )}
                         </div>
                         <div className='flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground'>
                           <span>{node.contentType}</span>
@@ -353,6 +345,12 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                           <span>{node.estimatedTime} min</span>
                           <span>•</span>
                           <span>{getDifficultyLabel(node.difficultyLevel)}</span>
+                        </div>
+                        <div className='flex items-center justify-between gap-2'>
+                          <Badge variant={isCurrent ? 'default' : isLocked ? 'outline' : 'secondary'}>
+                            {node.progressionState === 'completed' ? 'Completed' : isCurrent ? 'Current' : 'Locked'}
+                          </Badge>
+                          {isLocked ? <span className='text-[11px]'>Complete the previous step first.</span> : null}
                         </div>
                       </button>
                     )
@@ -399,21 +397,12 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                     </div>
                     <div className='flex flex-wrap gap-2'>
                       {selectedNode.isCompleted ? (
-                        <Button type='button' variant='outline' onClick={handleReopenNode} disabled={reopenNode.isPending}>
-                          <RotateCcwIcon className='size-4' />
-                          {reopenNode.isPending ? 'Reopening...' : 'Reopen step'}
-                        </Button>
+                        <p className='text-sm text-muted-foreground'>This step is mastered and remains available for review and tutor questions.</p>
                       ) : (
-                        <>
-                          <Button type='button' onClick={() => setActiveTab('validation')}>
-                            <CircleCheckBigIcon className='size-4' />
-                            Validate to finish step
-                          </Button>
-                          <Button type='button' variant='outline' onClick={handleFinishNode} disabled={finishNode.isPending}>
-                            <CircleCheckBigIcon className='size-4' />
-                            {finishNode.isPending ? 'Finishing...' : 'Finish manually'}
-                          </Button>
-                        </>
+                        <Button type='button' onClick={() => setActiveTab('validation')}>
+                          <CircleCheckBigIcon data-icon='inline-start' />
+                          Validate to finish step
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -637,7 +626,7 @@ export function CourseWorkspace({ courseId }: { courseId: string }) {
                   <div className='flex items-center justify-between gap-3 text-xs text-muted-foreground'>
                     <span>
                       {selectedNode?.isCompleted
-                        ? 'This step is already completed. Reopen it to validate again.'
+                        ? 'This step is already mastered. Review the lesson or ask the tutor any time.'
                         : 'A score of 80 or above finishes the selected step.'}
                     </span>
                     <Button type='submit' disabled={!selectedNode || !draftValidationMessage.trim() || validationChat.isPending || selectedNode?.isCompleted}>
