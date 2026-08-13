@@ -46,7 +46,7 @@ The audit was performed against the implementation state on `master` immediately
 | Learning activity logs | Implemented for Stagnation MVP | One aggregate row per authenticated learner + node stores active seconds, failure/time/backtrack/effort metrics, score, level, and trigger reasons | Tutor learner turns are derived from persistent Tutor history rather than duplicated. |
 | Micro-artifact records | Schema-only | `micro_artifacts` table exists | No submission, review, or UI workflow. |
 | Long-term cognitive adaptation | Not implemented | Historical design describes it | Current recalibration uses recent Socratic failure context instead. |
-| Curated learning-source database | Implemented infrastructure | `learning_sources`, typed repeatable seed, deterministic matcher, lazy lesson integration, legacy normalization, and trusted-link UI are connected | The seed dataset is intentionally empty pending separate manual research and verification; no crawler/admin ingestion exists. |
+| Curated learning-source database | Implemented | `learning_sources`, a repeatable 22-source manually verified seed, deterministic matcher, lazy lesson integration, legacy normalization, and trusted-link UI are connected | Official documentation, verified tutorials, and open courseware are represented; at most 3 matching sources are attached and zero matches remains valid. |
 | Development AI mock mode | Implemented | `AI_MODE=mock` provides deterministic valid outputs for roadmap, lesson, Tutor, Validator, and recalibration flows | No Gemini request function is invoked; `AI_MODE` defaults to `gemini`. |
 | Supabase/Postgres RLS policies | Not evidenced | Historical design claims RLS | No repository-owned RLS policy/migration was found during audit. |
 | Instructor/admin workflows | Not implemented | No core product role/flow found | Outside current learner MVP. |
@@ -116,10 +116,6 @@ The table exists, but no active API/UI flow verifies repositories, files, or liv
 
 Confirm whether any non-workspace consumers still require `finishNode` or `reopenNode`, then remove them if compatibility is no longer needed.
 
-### P1 — Populate the curated-source catalog
-
-Manually research and verify real official documentation, open courseware, and tutorial entries before adding them to the typed source seed. The application intentionally returns no external links until qualifying verified, active rows exist.
-
 ### P1 — Expand adaptive data only when required
 
 If long-term personalization remains in scope:
@@ -150,7 +146,7 @@ A focused Stagnation Score check covers the deterministic signal weights, exclus
 
 Focused recalibration checks cover eligibility, state transitions, preservation/replacement ordering, derived progression, metadata, logging, duplicate calls, generation/database failure boundaries, and frontend single-flight orchestration. They use deterministic fakes rather than a live PostgreSQL transaction or Gemini integration.
 
-Focused curated-source checks cover verified/active filtering, tag and level ranking, deterministic ordering, result limits, no-match and empty-catalog behavior, database authority over AI resource fields, legacy lesson-body preservation, and replacement-node reuse of the normal lesson path. They are domain-level checks rather than a live PostgreSQL lesson query.
+Focused curated-source checks cover verified/active filtering, tag and level ranking, deterministic ordering, result limits, no-match and empty-catalog behavior, database authority over AI resource fields, legacy lesson-body preservation, replacement-node reuse of the normal lesson path, and realistic matching across the 22-source corpus. They are domain-level checks rather than a live PostgreSQL lesson query.
 
 Focused AI mock checks cover all active generation contracts, deterministic Tutor responses, controllable Socratic pass/fail behavior, compatibility with the repeated-failure Stagnation trigger, replacement-path output, conditional Gemini-key validation, and proof that the injected Gemini request function is not called in mock mode.
 

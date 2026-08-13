@@ -1,3 +1,8 @@
+import {
+	curatedLearningSourceSeedSchema,
+	curatedLearningSources,
+} from "@gemastik/db/seeds/learning-sources";
+
 import { buildCuratedLessonContent } from "../src/domain/lesson-content";
 import {
 	mapLearnerLevel,
@@ -30,6 +35,40 @@ function source(
 		isActive: true,
 		...overrides,
 	};
+}
+
+function assert(condition: boolean, label: string) {
+	if (!condition) throw new Error(label);
+}
+
+const corpusCandidates: LearningSourceCandidate[] = curatedLearningSources.map(
+	(seed, index) => ({
+		id: `corpus-${index + 1}`,
+		...curatedLearningSourceSeedSchema.parse(seed),
+		isVerified: true,
+		isActive: true,
+	}),
+);
+
+assertEqual(corpusCandidates.length, 22, "Corpus contains 22 sources");
+assertEqual(
+	new Set(corpusCandidates.map(({ url }) => url)).size,
+	22,
+	"Corpus URLs are unique",
+);
+
+function matchCorpus(
+	topic: string,
+	nodeTitle: string,
+	learnerLevel = "Beginner",
+	goalDescription?: string,
+) {
+	return selectCuratedLearningSources(corpusCandidates, {
+		topic,
+		nodeTitle,
+		learnerLevel,
+		goalDescription,
+	});
 }
 
 const context = {
@@ -188,4 +227,114 @@ assertEqual(
 	"Source J replacement node normal path",
 );
 
-console.log("Curated learning source checks passed (Sources A-J).");
+const figmaMatches = matchCorpus(
+	"UI/UX for Mobile Design",
+	"Figma Interface & Basic Geometry",
+	"Beginner",
+	"Build a practical mobile UI/UX project",
+);
+assertEqual(figmaMatches[0]?.provider, "Figma", "Corpus UI/UX Figma ranking");
+assert(
+	figmaMatches.some(({ provider }) => provider === "Figma"),
+	"Corpus UI/UX should include a Figma source",
+);
+
+const typographyMatches = matchCorpus(
+	"UI/UX for Mobile Design",
+	"Mobile Typography and Spacing",
+);
+assert(
+	typographyMatches.some(({ title }) =>
+		["Guide to text in Figma Design", "Guide to auto layout"].includes(title),
+	),
+	"Corpus typography/spacing should include Figma text or Auto Layout",
+);
+
+assertEqual(
+	matchCorpus("React frontend", "React components, props, and state")[0]?.provider,
+	"React",
+	"Corpus React ranking",
+);
+assertEqual(
+	matchCorpus("TypeScript", "TypeScript types and generics", "Intermediate")[0]?.provider,
+	"TypeScript",
+	"Corpus TypeScript ranking",
+);
+
+const backendMatches = matchCorpus(
+	"Backend JavaScript",
+	"Build a Node.js API with Express",
+);
+assert(
+	backendMatches.some(({ provider }) =>
+		["Node.js", "Express"].includes(provider),
+	),
+	"Corpus backend matching should include Node.js or Express",
+);
+
+assertEqual(
+	matchCorpus(
+		"PostgreSQL relational database",
+		"SQL queries, joins, and transactions",
+	)[0]?.provider,
+	"PostgreSQL",
+	"Corpus PostgreSQL ranking",
+);
+assert(
+	matchCorpus(
+		"TypeScript database",
+		"Prisma ORM schema and migrations",
+		"Intermediate",
+	).some(({ provider }) => provider === "Prisma"),
+	"Corpus ORM/schema matching should include Prisma",
+);
+
+assert(
+	matchCorpus("Python programming", "Python syntax, variables, and loops").some(
+		({ provider }) =>
+			provider === "Python.org" || provider === "MIT OpenCourseWare",
+	),
+	"Corpus Python beginner matching",
+);
+assertEqual(
+	matchCorpus("Python data analysis", "Analyze tabular data with pandas")[0]
+		?.provider,
+	"pandas",
+	"Corpus pandas ranking",
+);
+assertEqual(
+	matchCorpus("Containerization", "Build and run Docker containers")[0]
+		?.provider,
+	"Docker",
+	"Corpus Docker ranking",
+);
+assertEqual(
+	matchCorpus("GCP", "Deploy an application to Google Cloud")[0]?.provider,
+	"Google Cloud",
+	"Corpus Google Cloud ranking",
+);
+assertEqual(
+	matchCorpus("Azure cloud", "Plan an Azure cloud environment")[0]?.provider,
+	"Microsoft Learn",
+	"Corpus Azure ranking",
+);
+
+const algorithmsMatches = matchCorpus(
+	"Computer science",
+	"Algorithms and data structures",
+);
+assert(
+	algorithmsMatches.some(({ provider }) =>
+		["Harvard University", "MIT OpenCourseWare"].includes(provider),
+	),
+	"Corpus algorithms/data-structures matching",
+);
+assertEqual(
+	matchCorpus("Medieval manuscripts", "Watercolor pigment conservation"),
+	[],
+	"Corpus unrelated topic remains a zero match",
+);
+
+console.log(
+	"Curated learning source checks passed (Sources A-J and 13 corpus scenarios).",
+);
