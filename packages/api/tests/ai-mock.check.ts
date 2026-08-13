@@ -67,13 +67,13 @@ const mockAi = createAiService({
 
 const roadmap = roadmapSchema.parse(
 	await mockAi.generateStructuredOutput(
-		'User Goal: "Learn accessible interface design"',
+		"User Goal: Mobile Interface Geometry",
 		"You specialize in Micro-Curriculum Synthesis.",
 	),
 );
 assertEqual(roadmap.nodes.length, 5, "AI A roadmap node count");
 assertEqual(
-	roadmap.nodes[0]?.title.includes("accessible interface design"),
+	roadmap.nodes[0]?.title.includes("Mobile Interface Geometry"),
 	true,
 	"AI A roadmap goal context",
 );
@@ -165,8 +165,8 @@ assertEqual(
 const recalibration = recalibrationSchema.parse(
 	await mockAi.generateStructuredOutput(
 		JSON.stringify({
-			originalLearningGoal: "Learn accessible interface design",
-			problematicNode: { title: "Typography and Spacing" },
+			originalLearningGoal: "Build a practical mobile interface geometry project",
+			problematicNode: { title: roadmap.nodes[0]?.title },
 		}),
 		"Generate a replacement path of 3-5 nodes for the unfinished portion.",
 	),
@@ -174,7 +174,7 @@ const recalibration = recalibrationSchema.parse(
 assertEqual(recalibration.nodes.length, 3, "AI G replacement node count");
 assertEqual(
 	recalibration.nodes.every((node) =>
-		node.title.includes("Typography and Spacing"),
+		node.title.includes("Mobile Interface Geometry"),
 	),
 	true,
 	"AI G replacement problem context",
@@ -183,7 +183,7 @@ assertEqual(
 const repeatedRecalibration = recalibrationSchema.parse(
 	await mockAi.generateStructuredOutput(
 		JSON.stringify({
-			originalLearningGoal: "Learn accessible interface design",
+			originalLearningGoal: "Build a practical mobile interface geometry project",
 			problematicNode: { title: recalibration.nodes[0]?.title },
 		}),
 		"Generate a replacement path of 3-5 nodes for the unfinished portion.",
@@ -206,4 +206,7 @@ assertEqual(
 
 assertEqual(geminiCallCount, 0, "AI H Gemini provider isolation");
 
+console.log(
+	`Fresh mock recalibration titles: ${recalibration.nodes.map((node) => node.title).join(" | ")}`,
+);
 console.log("AI mock checks passed (AI A-H).")

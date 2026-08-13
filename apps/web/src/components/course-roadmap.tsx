@@ -4,6 +4,7 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import type { Route } from 'next'
 import Link from 'next/link'
 
+import { AuthenticatedPageContainer } from '@/components/authenticated-page-container'
 import type { CourseNode } from '@/components/course-workspace-sections'
 import { getCourseGoalSummary, getCoursePace, type CourseOnboarding } from '@/lib/course-presentation'
 import { getRoadmapNodeHref, getRoadmapNodeInteraction, markEarlierCompletedReview } from '@/lib/roadmap-navigation'
@@ -152,24 +153,24 @@ export function CourseRoadmap({ courseId }: { courseId: string }) {
 
   if (courseQuery.isPending) {
     return (
-      <div className='flex min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-10' aria-live='polite'>
-        <div className='mx-auto flex w-full max-w-6xl flex-col gap-8'>
+      <div className='flex min-h-0 flex-1 overflow-y-auto' aria-live='polite'>
+        <AuthenticatedPageContainer className='flex flex-col gap-8 py-6'>
           <p className='text-sm font-medium'>Preparing your learning path…</p>
           <Skeleton className='h-24 w-full' />
-          <div className='mx-auto flex w-full max-w-4xl flex-col gap-8'>
+          <div className='flex w-full flex-col gap-8'>
             <Skeleton className='h-24 w-64 max-w-full' />
             <Skeleton className='h-24 w-64 max-w-full self-end' />
             <Skeleton className='h-24 w-64 max-w-full' />
           </div>
-        </div>
+        </AuthenticatedPageContainer>
       </div>
     )
   }
 
   if (courseQuery.isError) {
     return (
-      <div className='flex min-h-0 flex-1 overflow-y-auto px-4 py-6 lg:px-10'>
-        <div className='mx-auto flex w-full max-w-4xl flex-col gap-4'>
+      <div className='flex min-h-0 flex-1 overflow-y-auto'>
+        <AuthenticatedPageContainer className='flex flex-col gap-4 py-6'>
           <Link href='/dashboard' className='inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground'>
             <ArrowLeftIcon className='size-4' aria-hidden='true' />
             Back to dashboard
@@ -180,7 +181,7 @@ export function CourseRoadmap({ courseId }: { courseId: string }) {
               <CardDescription>Return to the dashboard and try opening it again.</CardDescription>
             </CardHeader>
           </Card>
-        </div>
+        </AuthenticatedPageContainer>
       </div>
     )
   }
@@ -196,8 +197,8 @@ export function CourseRoadmap({ courseId }: { courseId: string }) {
   const adaptivePending = course.currentStatus === 'needs_recalibration' || course.currentStatus === 'recalibrating'
 
   return (
-    <div className='flex min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-10 lg:py-7'>
-      <div className='mx-auto flex w-full max-w-7xl flex-col gap-8'>
+    <div className='flex min-h-0 flex-1 overflow-y-auto'>
+      <AuthenticatedPageContainer className='flex flex-col gap-8 py-5 lg:py-7'>
         <header className='flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between'>
           <div className='flex min-w-0 max-w-3xl flex-col gap-2'>
             <Link href='/dashboard' className='mb-1 inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'>
@@ -243,7 +244,7 @@ export function CourseRoadmap({ courseId }: { courseId: string }) {
               This course is saved as a draft. Its learning path is not available yet.
             </p>
           ) : (
-            <ol className='relative mx-auto w-full max-w-5xl py-2 md:py-5' aria-label='Ordered course roadmap'>
+            <ol className='relative w-full py-2 md:py-5' aria-label='Ordered course roadmap'>
               <span className='absolute bottom-8 left-[1.35rem] top-8 w-px bg-border md:hidden' aria-hidden='true' />
               {course.nodes.map((node, index) => {
                 const fromLeft = index % 2 === 0
@@ -266,7 +267,7 @@ export function CourseRoadmap({ courseId }: { courseId: string }) {
             </ol>
           )}
         </section>
-      </div>
+      </AuthenticatedPageContainer>
     </div>
   )
 }

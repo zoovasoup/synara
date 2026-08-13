@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 import { CourseCard } from '@/components/course-card'
 import { CreateCourseDialog } from '@/components/create-course-dialog'
+import { getCourseGoalSummary, getCoursePace, type CourseOnboarding } from '@/lib/course-presentation'
 import { useTRPC } from '@/utils/trpc'
 import { Button, buttonVariants } from '@gemastik/ui/components/button'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
@@ -25,10 +26,7 @@ type RoadmapCardData = {
   goalDescription: string
   currentStatus: string | null
   metadata: {
-    onboarding?: {
-      topic: string
-      level: string
-    }
+    onboarding?: CourseOnboarding
     generationStatus?: 'generated' | 'draft'
   } | null
   nodes: RoadmapNodeData[]
@@ -44,7 +42,8 @@ function getCourseSummary(roadmap: RoadmapCardData) {
 
   return {
     title: metadata.onboarding?.topic ?? roadmap.goalDescription,
-    level: metadata.onboarding?.level ?? 'Custom',
+    goalSummary: getCourseGoalSummary(metadata.onboarding, roadmap.goalDescription),
+    pace: getCoursePace(metadata.onboarding) || 'Custom pace',
     completedSteps,
     totalSteps,
     progress,
@@ -140,7 +139,7 @@ export function SectionCards() {
                 {activeCourse.summary.title}
               </h2>
               <p className='line-clamp-2 max-w-2xl break-words text-sm leading-6 text-muted-foreground'>
-                {activeCourse.roadmap.goalDescription}
+                {activeCourse.summary.goalSummary}
               </p>
             </div>
             <div className='flex max-w-xl flex-col gap-2'>
@@ -187,8 +186,7 @@ export function SectionCards() {
               key={roadmap.id}
               href={`/dashboard/courses/${roadmap.id}`}
               title={summary.title}
-              description={roadmap.goalDescription}
-              level={summary.level}
+              secondaryMeta={summary.pace}
               completedSteps={summary.completedSteps}
               totalSteps={summary.totalSteps}
               progress={summary.progress}

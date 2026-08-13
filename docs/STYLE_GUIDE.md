@@ -131,28 +131,167 @@ Do not globally apply negative letter spacing to body copy.
 
 ---
 
-## 5. Spacing and Layout
+## 5. Layout and Container System
 
-Use a consistent spacing rhythm.
+Synara should use one consistent horizontal page grid across the authenticated application.
 
-| Size   | Usage                     |
-| ------ | ------------------------- |
-| `4px`  | Micro spacing             |
-| `8px`  | Tight relationships       |
-| `12px` | Compact spacing           |
-| `16px` | Normal component spacing  |
-| `24px` | Subsection separation     |
-| `32px` | Section separation        |
-| `48px` | Major separation          |
-| `64px` | Large composition spacing |
+Major page content should not shift left or right when navigating between Dashboard, Roadmap, and Learning pages unless the layout intentionally requires a different composition.
 
-Rules:
+### Main Page Container
 
-- Related elements should sit closer together.
-- Unrelated elements should be separated with whitespace.
-- Use generous page padding.
-- Avoid placing important content directly against viewport edges.
-- Do not fill empty space merely because it exists.
+Use one shared outer content container for normal application pages.
+
+Recommended desktop container:
+
+- maximum width: `1280px`;
+- centered within the available main-content area;
+- consistent horizontal gutters.
+
+Recommended page gutters:
+
+| Viewport      | Horizontal gutter |
+| ------------- | ----------------: |
+| `< 640px`     |            `16px` |
+| `640–1023px`  |            `24px` |
+| `1024–1279px` |            `32px` |
+| `>= 1280px`   |            `40px` |
+
+Dashboard, course overview, roadmap, and learning pages should share the same outer container alignment.
+
+The left edge of major page content should remain visually stable when navigating between these pages.
+
+---
+
+### Page Width and Content Width
+
+The outer page container and the width of the content inside it are separate concepts.
+
+A page may contain narrower content without changing the alignment of the page itself.
+
+For example:
+
+    Main page container
+    ┌──────────────────────────────────────────────────────────────┐
+    │                                                              │
+    │  Reading content                                             │
+    │  ┌──────────────────────────────┐                            │
+    │  │                              │                            │
+    │  │  Lesson text                 │                            │
+    │  │                              │                            │
+    │  └──────────────────────────────┘                            │
+    │                                                              │
+    └──────────────────────────────────────────────────────────────┘
+
+Do not create a new independently centered page container simply because one section needs a narrower width.
+
+---
+
+### Reading Width
+
+Long-form learning content should use a narrower reading measure for readability.
+
+Recommended reading width:
+
+- `68–76ch`;
+- approximately `680–800px`.
+
+The reading column should normally align with the left edge of the shared page grid.
+
+Do not independently center the reading column if doing so causes the page content to shift horizontally compared with other authenticated pages.
+
+---
+
+### Wide Content
+
+Content that benefits from more horizontal space may use most or all of the shared page container.
+
+Examples:
+
+- learning roadmaps;
+- progress visualization;
+- course overview;
+- tables;
+- diagrams;
+- interactive learning artifacts.
+
+Wide content should still respect the same outer page grid and gutters.
+
+Do not extend individual sections beyond the shared page container without a deliberate full-bleed reason.
+
+---
+
+### Alignment Rules
+
+The following elements should normally share the same left alignment:
+
+- back navigation;
+- page title;
+- primary page description;
+- status or adaptive notices;
+- major page sections;
+- primary content area.
+
+Narrower child content may exist inside the page container, but it should not redefine the horizontal alignment of the page.
+
+Avoid arbitrary combinations of independently centered:
+
+- `max-width` containers;
+- cards;
+- headers;
+- reading columns;
+- alerts;
+- section wrappers.
+
+Do not use different outer `max-width` values on different authenticated pages merely to make individual screens look balanced.
+
+---
+
+### Visual Consistency
+
+When moving between major pages, the horizontal anchor should remain stable.
+
+Preferred:
+
+    Dashboard
+        | content starts
+
+    Roadmap
+        | content starts
+
+    Learning
+        | content starts
+        | ┌──────── reading column ────────┐
+        | │                                │
+        | │ lesson content                 │
+        | │                                │
+        | └────────────────────────────────┘
+
+Avoid:
+
+    Dashboard
+             | content starts
+
+    Roadmap
+        | content starts
+
+    Learning
+                    | content starts
+
+The layout should feel like different views inside the same product, not separate applications with unrelated grids.
+
+---
+
+### Exceptions
+
+Independent centering is appropriate for genuinely self-contained experiences such as:
+
+- authentication forms;
+- dialogs;
+- modal content;
+- compact empty states;
+- focused setup flows.
+
+These exceptions should not redefine the horizontal grid of normal authenticated application pages.
 
 ---
 

@@ -7,8 +7,7 @@ import { ArrowRightIcon } from 'lucide-react'
 
 type CourseCardProps = {
   title: string
-  description: string
-  level: string
+  secondaryMeta: string
   completedSteps: number
   totalSteps: number
   progress: number | null
@@ -19,8 +18,7 @@ type CourseCardProps = {
 
 export function CourseCard({
   title,
-  description,
-  level,
+  secondaryMeta,
   completedSteps,
   totalSteps,
   progress,
@@ -35,10 +33,9 @@ export function CourseCard({
     <article className='group flex h-full flex-col gap-5 rounded-lg bg-card/65 p-5 transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:bg-card hover:shadow-sm motion-reduce:transform-none'>
       <div className='flex min-w-0 flex-col gap-2'>
         <p className='text-xs text-muted-foreground'>
-          {level}{status === 'In progress' ? '' : ` · ${status}`}
+          {secondaryMeta}{status === 'In progress' ? '' : ` · ${status}`}
         </p>
         <h3 className='text-base font-semibold leading-snug tracking-tight text-balance'>{title}</h3>
-        <p className='line-clamp-2 break-words text-sm leading-6 text-muted-foreground'>{description}</p>
       </div>
       <div className='flex flex-1 flex-col gap-4'>
         <div className='flex flex-col gap-2'>
