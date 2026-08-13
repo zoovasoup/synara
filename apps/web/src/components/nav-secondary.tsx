@@ -32,6 +32,7 @@ export function NavSecondary({
               <SidebarMenuButton
                 render={<Link href={item.href as Route} />}
                 isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                className="data-active:[box-shadow:inset_2px_0_0_var(--sidebar-primary)]"
               >
                 {item.iconNode}
                 <span>{item.title}</span>

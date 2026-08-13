@@ -31,7 +31,7 @@ export function NavMain({
             <CreateCourseDialog>
               <SidebarMenuButton
                 tooltip='Create course'
-                className='min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground'
+                className='min-w-8 bg-sidebar-accent text-sidebar-foreground transition-[background-color,color] duration-200 hover:bg-primary/10 hover:text-primary active:bg-primary/10 active:text-primary'
               >
                 <CirclePlusIcon />
                 <span>Create course</span>
@@ -46,6 +46,7 @@ export function NavMain({
                   tooltip={item.title}
                   isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                   render={<Link href={item.href as Route} />}
+                  className='data-active:[box-shadow:inset_2px_0_0_var(--sidebar-primary)]'
                 >
                 {item.iconNode}
                 <span>{item.title}</span>

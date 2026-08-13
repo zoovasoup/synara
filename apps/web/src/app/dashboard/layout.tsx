@@ -29,12 +29,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <SidebarProvider
       style={{
-        '--sidebar-width': 'calc(var(--spacing) * 60)',
-        '--header-height': 'calc(var(--spacing) * 10)',
+        '--sidebar-width': 'calc(var(--spacing) * 56)',
+        '--header-height': 'calc(var(--spacing) * 9)',
       } as CSSProperties}
     >
       <AppSidebar
-        variant='inset'
+        variant='sidebar'
         sidebar={sidebar}
         user={{
           name: session.user.name,

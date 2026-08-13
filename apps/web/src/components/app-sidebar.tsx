@@ -45,15 +45,17 @@ export function AppSidebar({
 }) {
 	return (
 		<Sidebar collapsible="offcanvas" {...props}>
-			<SidebarHeader>
+			<SidebarHeader className="px-3 pb-2 pt-3">
 				<SidebarMenu>
 					<SidebarMenuItem>
 						<SidebarMenuButton
-							className="data-[slot=sidebar-menu-button]:p-1.5!"
+							className="h-9 px-1! hover:bg-transparent"
 							render={<Link href="/dashboard" />}
 						>
-							<BookOpenCheckIcon className="size-5!" aria-hidden="true" />
-							<span className="text-base font-semibold">Synara</span>
+							<span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+								<BookOpenCheckIcon aria-hidden="true" />
+							</span>
+							<span className="text-sm font-semibold tracking-tight">Synara</span>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 				</SidebarMenu>

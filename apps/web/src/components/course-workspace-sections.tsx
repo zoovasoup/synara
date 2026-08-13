@@ -1,5 +1,6 @@
 import { Badge } from '@gemastik/ui/components/badge'
 import { Button, buttonVariants } from '@gemastik/ui/components/button'
+import { Separator } from '@gemastik/ui/components/separator'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { cn } from '@gemastik/ui/lib/utils'
 import {
@@ -82,7 +83,7 @@ export function LessonSurface({
 }) {
   if (!selectedNode) {
     return (
-      <section className='flex min-h-72 items-center justify-center bg-card p-8 text-center lg:h-full'>
+      <section className='flex min-h-72 items-center justify-center p-8 text-center lg:h-full'>
         <div className='flex max-w-sm flex-col items-center gap-2'>
           <BookOpenIcon className='size-6 text-muted-foreground' aria-hidden='true' />
           <h2 className='text-base font-semibold'>No lesson is available yet</h2>
@@ -93,33 +94,31 @@ export function LessonSurface({
   }
 
   return (
-    <article className='flex min-h-0 min-w-0 flex-col bg-card lg:h-full' aria-labelledby='lesson-heading'>
-      <header className='shrink-0 border-b px-5 py-5 md:px-8'>
-        <div className='mx-auto flex w-full max-w-3xl flex-col gap-3'>
+    <article className='flex min-h-0 min-w-0 flex-col bg-transparent lg:h-full' aria-labelledby='lesson-heading'>
+      <header className='shrink-0 px-1 pb-5 pt-2 sm:px-3 md:pb-7'>
+        <div className='mx-auto flex w-full max-w-[74ch] flex-col gap-3'>
           <div className='flex flex-wrap items-center justify-between gap-3'>
-            <p className='text-xs font-medium uppercase tracking-wider text-muted-foreground'>
+            <p className='font-mono text-xs tabular-nums text-muted-foreground'>
               Step {selectedNode.orderIndex + 1} of {nodeCount}
             </p>
             {selectedNode.isCompleted ? <Badge variant='secondary'>Completed</Badge> : null}
           </div>
-          <div className='flex flex-col gap-1.5'>
-            <h2 id='lesson-heading' className='text-xl font-semibold leading-tight tracking-tight text-pretty md:text-2xl'>{selectedNode.title}</h2>
-            <p className='text-sm leading-6 text-foreground/75'>
+          <div className='flex flex-col gap-2'>
+            <h1 id='lesson-heading' className='text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl'>
+              {selectedNode.title}
+            </h1>
+            <p className='max-w-2xl text-[15px] leading-7 text-foreground/78'>
               {selectedNode.successCriteria[0] ?? 'Build enough understanding to explain and apply this step.'}
             </p>
           </div>
-          <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground'>
-            <span>{getDifficultyLabel(selectedNode.difficultyLevel)}</span>
-            <span aria-hidden='true'>·</span>
-            <span>~{selectedNode.estimatedTime} min</span>
-            <span aria-hidden='true'>·</span>
-            <span>{selectedNode.contentType}</span>
-          </div>
+          <p className='text-xs text-muted-foreground'>
+            {getDifficultyLabel(selectedNode.difficultyLevel)} · ~{selectedNode.estimatedTime} min · {selectedNode.contentType}
+          </p>
         </div>
       </header>
 
       <div className='lg:min-h-0 lg:flex-1 lg:overflow-y-auto'>
-        <div className='mx-auto flex w-full max-w-3xl flex-col gap-10 px-5 py-7 md:px-8 md:py-9'>
+        <div className='mx-auto flex w-full max-w-[74ch] flex-col gap-12 px-1 pb-16 pt-4 sm:px-3 md:pt-6'>
           {isPending ? (
             <div className='flex flex-col gap-4' role='status' aria-live='polite'>
               <p className='text-sm font-medium'>Preparing this lesson…</p>
@@ -128,22 +127,22 @@ export function LessonSurface({
               <Skeleton className='h-40 w-full' />
             </div>
           ) : errorMessage ? (
-            <div role='alert' className='rounded-md border border-destructive/40 p-4'>
-              <h3 className='text-sm font-medium'>Unable to prepare this lesson</h3>
+            <div role='alert' className='rounded-md bg-destructive/10 p-4'>
+              <h2 className='text-sm font-medium'>Unable to prepare this lesson</h2>
               <p className='mt-1 text-sm leading-6 text-muted-foreground'>{errorMessage} Try opening the step again.</p>
             </div>
           ) : lessonContent ? (
             <>
-              <section aria-labelledby='overview-heading' className='flex flex-col gap-3'>
-                <h3 id='overview-heading' className='text-lg font-semibold tracking-tight'>Overview</h3>
-                <p className='text-[15px] leading-7 text-foreground/80'>{lessonContent.summary}</p>
+              <section aria-labelledby='overview-heading' className='flex scroll-mt-6 flex-col gap-3'>
+                <h2 id='overview-heading' className='text-lg font-semibold tracking-tight'>Overview</h2>
+                <p className='text-[15px] leading-7 text-foreground/88'>{lessonContent.summary}</p>
               </section>
 
-              <section aria-labelledby='concepts-heading' className='flex flex-col gap-4'>
-                <h3 id='concepts-heading' className='text-lg font-semibold tracking-tight'>Key concepts</h3>
+              <section aria-labelledby='concepts-heading' className='flex scroll-mt-6 flex-col gap-4'>
+                <h2 id='concepts-heading' className='text-lg font-semibold tracking-tight'>Key concepts</h2>
                 <ul className='flex flex-col gap-3'>
                   {lessonContent.concepts.map((concept) => (
-                    <li key={concept} className='grid grid-cols-[0.75rem_minmax(0,1fr)] gap-3 text-[15px] leading-7 text-foreground/80'>
+                    <li key={concept} className='grid grid-cols-[0.75rem_minmax(0,1fr)] gap-3 text-[15px] leading-7 text-foreground/88'>
                       <span className='mt-3 size-1.5 rounded-full bg-primary' aria-hidden='true' />
                       <span className='break-words'>{concept}</span>
                     </li>
@@ -151,88 +150,85 @@ export function LessonSurface({
                 </ul>
               </section>
 
-              <section aria-labelledby='steps-heading' className='flex flex-col gap-4'>
-                <h3 id='steps-heading' className='text-lg font-semibold tracking-tight'>Guided steps</h3>
-                <ol className='flex flex-col gap-5'>
+              <section aria-labelledby='steps-heading' className='flex scroll-mt-6 flex-col gap-4'>
+                <h2 id='steps-heading' className='text-lg font-semibold tracking-tight'>Guided steps</h2>
+                <ol className='flex flex-col gap-6'>
                   {lessonContent.steps.map((step, index) => (
                     <li key={`${step}-${index}`} className='grid grid-cols-[2rem_minmax(0,1fr)] gap-3'>
-                      <span className='flex size-8 items-center justify-center rounded-md bg-muted font-mono text-xs font-medium text-foreground' aria-hidden='true'>
+                      <span className='pt-1 font-mono text-xs font-medium tabular-nums text-primary' aria-hidden='true'>
                         {String(index + 1).padStart(2, '0')}
                       </span>
-                      <p className='break-words pt-1 text-[15px] leading-7 text-foreground/80'>{step}</p>
+                      <p className='break-words text-[15px] leading-7 text-foreground/88'>{step}</p>
                     </li>
                   ))}
                 </ol>
               </section>
 
-              <section aria-labelledby='practice-heading' className='flex flex-col gap-4'>
-                <h3 id='practice-heading' className='text-lg font-semibold tracking-tight'>Practice</h3>
-                <ul className='flex flex-col gap-3 rounded-md bg-muted/40 p-4'>
+              <section aria-labelledby='practice-heading' className='flex scroll-mt-6 flex-col gap-4'>
+                <h2 id='practice-heading' className='text-lg font-semibold tracking-tight'>Practice</h2>
+                <ul className='flex flex-col gap-3 rounded-lg border-l-2 border-primary/35 bg-muted/45 px-5 py-4'>
                   {lessonContent.exercises.map((exercise) => (
-                    <li key={exercise} className='flex gap-3 text-sm leading-6 text-foreground/75'>
-                      <BookOpenIcon className='mt-1 size-4 shrink-0 text-primary' aria-hidden='true' />
+                    <li key={exercise} className='flex gap-3 text-[15px] leading-7 text-foreground/82'>
+                      <BookOpenIcon className='mt-1.5 size-4 shrink-0 text-primary' aria-hidden='true' />
                       <span className='break-words'>{exercise}</span>
                     </li>
                   ))}
                 </ul>
               </section>
 
-              <section aria-labelledby='criteria-heading' className='flex flex-col gap-4'>
-                <h3 id='criteria-heading' className='text-lg font-semibold tracking-tight'>Ready when you can…</h3>
-                <ul className='flex flex-col gap-2'>
+              <section aria-labelledby='criteria-heading' className='flex scroll-mt-6 flex-col gap-4'>
+                <h2 id='criteria-heading' className='text-lg font-semibold tracking-tight'>Ready when you can…</h2>
+                <ul className='flex flex-col gap-2.5'>
                   {selectedNode.successCriteria.map((criterion) => (
-                    <li key={criterion} className='flex gap-3 text-sm leading-6 text-foreground/75'>
-                      <CircleCheckBigIcon className='mt-1 size-4 shrink-0 text-primary' aria-hidden='true' />
+                    <li key={criterion} className='flex gap-3 text-[15px] leading-7 text-foreground/82'>
+                      <CircleCheckBigIcon className='mt-1.5 size-4 shrink-0 text-success' aria-hidden='true' />
                       <span className='break-words'>{criterion}</span>
                     </li>
                   ))}
                 </ul>
               </section>
 
-              <section aria-labelledby='resources-heading' className='flex flex-col gap-4 border-t pt-8'>
+              <section aria-labelledby='resources-heading' className='flex scroll-mt-6 flex-col gap-5'>
                 <div className='flex flex-col gap-1'>
-                  <h3 id='resources-heading' className='text-lg font-semibold tracking-tight'>Trusted resources</h3>
-                  <p className='text-sm text-muted-foreground'>External references selected from Synara’s verified catalog.</p>
+                  <h2 id='resources-heading' className='text-lg font-semibold tracking-tight'>Trusted resources</h2>
+                  <p className='text-sm text-muted-foreground'>Selected from Synara’s verified catalog.</p>
                 </div>
                 {lessonContent.resources.length > 0 ? (
-                  <ul className='flex flex-col divide-y'>
+                  <ul className='flex flex-col divide-y divide-border/70'>
                     {lessonContent.resources.map((resource) => (
-                      <li key={resource.sourceId} className='flex flex-col gap-3 py-4 first:pt-0 last:pb-0'>
-                        <div className='flex flex-wrap items-start justify-between gap-3'>
-                          <div className='min-w-0'>
-                            <h4 className='break-words text-sm font-semibold'>{resource.title}</h4>
-                            <p className='mt-1 text-xs text-muted-foreground'>{resource.provider} · {getResourceLevelLabel(resource.level)}</p>
-                          </div>
-                          <Badge variant='outline'>{getResourceTypeLabel(resource.sourceType)}</Badge>
+                      <li key={resource.sourceId} className='flex flex-col gap-2.5 py-4 first:pt-0 last:pb-0'>
+                        <div className='min-w-0'>
+                          <h3 className='break-words text-sm font-semibold'>{resource.title}</h3>
+                          <p className='mt-1 text-xs text-muted-foreground'>
+                            {resource.provider} · {getResourceTypeLabel(resource.sourceType)} · {getResourceLevelLabel(resource.level)}
+                          </p>
                         </div>
                         <p className='break-words text-sm leading-6 text-muted-foreground'>{resource.description}</p>
-                        <div>
-                          <a
-                            href={resource.url}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            className={cn(buttonVariants({ variant: 'link', size: 'sm' }), 'px-0')}
-                            aria-label={`Open ${resource.title} in a new tab`}
-                          >
-                            Open resource
-                            <ExternalLinkIcon data-icon='inline-end' aria-hidden='true' />
-                          </a>
-                        </div>
+                        <a
+                          href={resource.url}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          className={cn(buttonVariants({ variant: 'link', size: 'sm' }), 'w-fit px-0')}
+                          aria-label={`Open ${resource.title} in a new tab`}
+                        >
+                          Open resource
+                          <ExternalLinkIcon data-icon='inline-end' aria-hidden='true' />
+                        </a>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className='rounded-md bg-muted/40 p-4 text-sm leading-6 text-muted-foreground'>
-                    No curated external source is available for this step yet.
-                  </p>
+                  <p className='text-sm leading-6 text-muted-foreground'>No curated external source is available for this step yet.</p>
                 )}
               </section>
 
-              <section className='border-t pt-8' aria-labelledby='lesson-next-action-heading'>
+              <Separator />
+
+              <section aria-labelledby='lesson-next-action-heading'>
                 {selectedNode.isCompleted ? (
-                  <div className='flex flex-col gap-4 rounded-md bg-muted/35 p-5 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
                     <div className='flex min-w-0 flex-col gap-1'>
-                      <h3 id='lesson-next-action-heading' className='text-base font-semibold'>Completed</h3>
+                      <h2 id='lesson-next-action-heading' className='text-lg font-semibold tracking-tight'>Completed</h2>
                       <p className='text-sm leading-6 text-muted-foreground'>Review this lesson any time, or ask the Tutor for another explanation.</p>
                     </div>
                     <Button type='button' variant='outline' onClick={onOpenTutor} className='w-full sm:w-auto'>
@@ -241,17 +237,17 @@ export function LessonSurface({
                     </Button>
                   </div>
                 ) : (
-                  <div className='flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between'>
-                    <div className='flex max-w-xl flex-col gap-1'>
-                      <h3 id='lesson-next-action-heading' className='text-lg font-semibold tracking-tight'>Ready to check your understanding?</h3>
-                      <p className='text-sm leading-6 text-muted-foreground'>You should be able to explain and apply the ideas above.</p>
+                  <div className='flex flex-col gap-6 rounded-lg bg-primary/8 px-5 py-6 sm:px-6'>
+                    <div className='flex max-w-xl flex-col gap-1.5'>
+                      <h2 id='lesson-next-action-heading' className='text-xl font-semibold tracking-tight text-balance'>Ready to check your understanding?</h2>
+                      <p className='text-sm leading-6 text-muted-foreground'>Explain and apply the ideas above when you are ready.</p>
                     </div>
-                    <div className='flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row'>
+                    <div className='flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:items-center'>
                       <Button type='button' variant='ghost' onClick={onOpenTutor}>
                         <MessageCircleQuestionIcon data-icon='inline-start' aria-hidden='true' />
                         Ask Tutor
                       </Button>
-                      <Button type='button' onClick={onOpenValidation} disabled={validationDisabled}>
+                      <Button type='button' size='lg' onClick={onOpenValidation} disabled={validationDisabled}>
                         <CircleCheckBigIcon data-icon='inline-start' aria-hidden='true' />
                         {validationDisabled ? 'Validation paused' : 'Validate understanding'}
                       </Button>

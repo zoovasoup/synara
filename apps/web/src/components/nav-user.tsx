@@ -23,9 +23,6 @@ import {
 } from "@gemastik/ui/components/sidebar";
 import {
 	EllipsisVerticalIcon,
-	CircleUserRoundIcon,
-	CreditCardIcon,
-	BellIcon,
 	LogOutIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -90,21 +87,6 @@ export function NavUser({
 									</div>
 								</div>
 							</DropdownMenuLabel>
-						</DropdownMenuGroup>
-						<DropdownMenuSeparator />
-						<DropdownMenuGroup>
-							<DropdownMenuItem>
-								<CircleUserRoundIcon />
-								Account
-							</DropdownMenuItem>
-							<DropdownMenuItem>
-								<CreditCardIcon />
-								Billing
-							</DropdownMenuItem>
-							<DropdownMenuItem>
-								<BellIcon />
-								Notifications
-							</DropdownMenuItem>
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem

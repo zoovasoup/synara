@@ -7,9 +7,7 @@ import Link from 'next/link'
 import { CourseCard } from '@/components/course-card'
 import { CreateCourseDialog } from '@/components/create-course-dialog'
 import { useTRPC } from '@/utils/trpc'
-import { Badge } from '@gemastik/ui/components/badge'
 import { Button, buttonVariants } from '@gemastik/ui/components/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@gemastik/ui/components/card'
 import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { cn } from '@gemastik/ui/lib/utils'
 import { useQuery } from '@tanstack/react-query'
@@ -68,21 +66,21 @@ export function SectionCards() {
 
   if (roadmapQuery.isPending) {
     return (
-      <div className='flex flex-col gap-6' aria-label='Loading learning dashboard'>
-        <Card>
-          <CardHeader>
-            <CardTitle>Preparing your learning overview…</CardTitle>
-            <CardDescription>Your current course and next step will appear here.</CardDescription>
-          </CardHeader>
-          <CardContent className='flex flex-col gap-3'>
+      <div className='flex flex-col gap-6' aria-label='Loading learning dashboard' aria-live='polite'>
+        <section className='flex flex-col gap-4 rounded-lg bg-card px-5 py-6'>
+          <div className='flex flex-col gap-1'>
+            <h2 className='text-base font-semibold'>Preparing your learning overview…</h2>
+            <p className='text-sm text-muted-foreground'>Your current course and next step will appear here.</p>
+          </div>
+          <div className='flex flex-col gap-3'>
             <Skeleton className='h-5 w-2/3' />
             <Skeleton className='h-2 w-full' />
             <Skeleton className='h-8 w-36' />
-          </CardContent>
-        </Card>
+          </div>
+        </section>
         <div className='grid gap-4 lg:grid-cols-2'>
-          <Skeleton className='h-60 w-full' />
-          <Skeleton className='h-60 w-full' />
+          <Skeleton className='h-56 w-full' />
+          <Skeleton className='h-56 w-full' />
         </div>
       </div>
     )
@@ -90,38 +88,34 @@ export function SectionCards() {
 
   if (roadmapQuery.isError) {
     return (
-      <Card className='border-destructive/40'>
-        <CardHeader>
-          <CardTitle>Unable to load your courses</CardTitle>
-          <CardDescription>Refresh the page to try again.</CardDescription>
-        </CardHeader>
-      </Card>
+      <section className='rounded-lg bg-destructive/10 px-5 py-4' role='alert'>
+        <h2 className='text-sm font-semibold'>Unable to load your courses</h2>
+        <p className='mt-1 text-sm text-muted-foreground'>Refresh the page to try again.</p>
+      </section>
     )
   }
 
   if (roadmapQuery.data.length === 0) {
     return (
-      <Card className='border-dashed'>
-        <CardHeader className='items-start gap-3'>
+      <section className='flex flex-col items-start gap-5 rounded-lg bg-card px-5 py-8 sm:px-8'>
+        <div className='flex flex-col items-start gap-3'>
           <div className='flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground'>
-            <BookOpenIcon className='size-5' aria-hidden='true' />
+            <BookOpenIcon aria-hidden='true' />
           </div>
           <div className='flex flex-col gap-1'>
-            <CardTitle className='text-lg'>Create your first course</CardTitle>
-            <CardDescription className='max-w-xl text-sm'>
+            <h2 className='text-lg font-semibold'>Create your first course</h2>
+            <p className='max-w-xl text-sm leading-6 text-muted-foreground'>
               Start with one learning goal. Synara will build the ordered roadmap and keep your next step clear.
-            </CardDescription>
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <CreateCourseDialog>
-            <Button size='lg'>
-              <CirclePlusIcon data-icon='inline-start' aria-hidden='true' />
-              Create first course
-            </Button>
-          </CreateCourseDialog>
-        </CardContent>
-      </Card>
+        </div>
+        <CreateCourseDialog>
+          <Button size='lg'>
+            <CirclePlusIcon data-icon='inline-start' aria-hidden='true' />
+            Create first course
+          </Button>
+        </CreateCourseDialog>
+      </section>
     )
   }
 
@@ -136,58 +130,56 @@ export function SectionCards() {
   const activeProgress = activeCourse.summary.progress ?? 0
 
   return (
-    <div className='flex flex-col gap-10'>
-      <section aria-labelledby='active-learning-heading'>
-        <Card className='bg-muted/20'>
-          <CardContent className='grid gap-6 py-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end'>
-            <div className='flex min-w-0 flex-col gap-4'>
-              <div className='flex flex-col gap-1'>
-                <p className='text-xs font-medium uppercase tracking-widest text-muted-foreground'>Active learning</p>
-                <h2 id='active-learning-heading' className='text-xl font-semibold text-pretty'>
-                  {activeCourse.summary.title}
-                </h2>
-                <p className='line-clamp-2 max-w-2xl break-words text-sm leading-6 text-muted-foreground'>
-                  {activeCourse.roadmap.goalDescription}
-                </p>
-              </div>
-              <div className='flex max-w-xl flex-col gap-2'>
-                <div className='flex items-center justify-between gap-3 text-sm'>
-                  <span className='font-medium'>{activeProgress}% complete</span>
-                  <span className='tabular-nums text-muted-foreground'>
-                    {activeCourse.summary.completedSteps} of {activeCourse.summary.totalSteps} steps
-                  </span>
-                </div>
-                <div
-                  role='progressbar'
-                  aria-label={`${activeCourse.summary.title} progress`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={activeProgress}
-                  className='h-2 overflow-hidden rounded-full bg-muted'
-                >
-                  <div className='h-full rounded-full bg-primary transition-[width]' style={{ width: `${activeProgress}%` }} />
-                </div>
-              </div>
-              <p className='text-sm text-muted-foreground'>
-                <span className='font-medium text-foreground'>Current step: </span>
-                {activeCourse.summary.currentNode?.title ?? 'Review your completed roadmap'}
+    <div className='flex flex-col gap-12'>
+      <section aria-labelledby='active-learning-heading' className='rounded-lg bg-card px-5 py-6 shadow-xs sm:px-7 sm:py-7'>
+        <div className='grid gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-end'>
+          <div className='flex min-w-0 flex-col gap-4'>
+            <div className='flex flex-col gap-1'>
+              <p className='text-xs font-medium tracking-wide text-primary'>Continue learning</p>
+              <h2 id='active-learning-heading' className='text-xl font-semibold tracking-tight text-balance sm:text-2xl'>
+                {activeCourse.summary.title}
+              </h2>
+              <p className='line-clamp-2 max-w-2xl break-words text-sm leading-6 text-muted-foreground'>
+                {activeCourse.roadmap.goalDescription}
               </p>
             </div>
-            <Link href={activeHref as Route} className={cn(buttonVariants({ size: 'lg' }), 'w-full md:w-auto')}>
-              Continue learning
-              <ArrowRightIcon data-icon='inline-end' aria-hidden='true' />
-            </Link>
-          </CardContent>
-        </Card>
+            <div className='flex max-w-xl flex-col gap-2'>
+              <div className='flex items-center justify-between gap-3 text-sm'>
+                <span className='font-medium'>{activeProgress}% complete</span>
+                <span className='tabular-nums text-muted-foreground'>
+                  {activeCourse.summary.completedSteps} of {activeCourse.summary.totalSteps} steps
+                </span>
+              </div>
+              <div
+                role='progressbar'
+                aria-label={`${activeCourse.summary.title} progress`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={activeProgress}
+                className='h-1.5 overflow-hidden rounded-full bg-muted'
+              >
+                <div className='h-full rounded-full bg-primary transition-[width] duration-200' style={{ width: `${activeProgress}%` }} />
+              </div>
+            </div>
+            <p className='text-sm text-muted-foreground'>
+              <span className='font-medium text-foreground'>Current step: </span>
+              {activeCourse.summary.currentNode?.title ?? 'Review your completed roadmap'}
+            </p>
+          </div>
+          <Link href={activeHref as Route} className={cn(buttonVariants({ size: 'lg' }), 'w-full md:w-auto')}>
+            Open current path
+            <ArrowRightIcon data-icon='inline-end' aria-hidden='true' />
+          </Link>
+        </div>
       </section>
 
       <section aria-labelledby='courses-heading' className='flex flex-col gap-4'>
         <div className='flex items-end justify-between gap-4'>
           <div className='flex flex-col gap-1'>
             <h2 id='courses-heading' className='text-lg font-semibold'>Your courses</h2>
-            <p className='text-sm text-muted-foreground'>Open any course to review its full learning path.</p>
+            <p className='text-sm text-muted-foreground'>Every roadmap stays available for study or review.</p>
           </div>
-          <Badge variant='secondary'>{roadmapQuery.data.length} total</Badge>
+          <span className='text-xs tabular-nums text-muted-foreground'>{roadmapQuery.data.length} total</span>
         </div>
         <div className='grid gap-4 lg:grid-cols-2 2xl:grid-cols-3'>
           {courseSummaries.map(({ roadmap, summary }) => (
@@ -205,19 +197,6 @@ export function SectionCards() {
             />
           ))}
         </div>
-      </section>
-
-      <section aria-labelledby='continue-heading' className='flex flex-col gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between'>
-        <div className='flex flex-col gap-1'>
-          <h2 id='continue-heading' className='text-base font-semibold'>Continue where you left off</h2>
-          <p className='text-sm text-muted-foreground'>
-            {activeCourse.summary.currentNode?.title ?? 'Your completed course remains available for review.'}
-          </p>
-        </div>
-        <Link href={activeHref as Route} className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')}>
-          Open learning workspace
-          <ArrowRightIcon data-icon='inline-end' aria-hidden='true' />
-        </Link>
       </section>
     </div>
   )

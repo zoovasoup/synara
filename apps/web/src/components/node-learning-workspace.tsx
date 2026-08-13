@@ -12,7 +12,6 @@ import { useActiveStudyAttempt } from '@/hooks/use-active-study-attempt'
 import { consumeCurrentNodeBacktrack, getValidationNavigationIntent, markCurrentLessonExit } from '@/lib/roadmap-navigation'
 import { runRecalibrationOrchestration, type RecalibrationResult } from '@/lib/recalibration-orchestration'
 import { useTRPC } from '@/utils/trpc'
-import { Badge } from '@gemastik/ui/components/badge'
 import { Button, buttonVariants } from '@gemastik/ui/components/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@gemastik/ui/components/card'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@gemastik/ui/components/field'
@@ -23,7 +22,7 @@ import { Skeleton } from '@gemastik/ui/components/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@gemastik/ui/components/tabs'
 import { cn } from '@gemastik/ui/lib/utils'
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon, CircleCheckBigIcon, Clock3Icon, LoaderCircleIcon, RefreshCwIcon, SendIcon } from 'lucide-react'
+import { ArrowLeftIcon, CircleCheckBigIcon, LoaderCircleIcon, RefreshCwIcon, SendIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 type CourseDetail = {
@@ -49,32 +48,38 @@ function MessageThread({
   messages,
   emptyMessage,
   pendingMessage,
+  assistantLabel,
 }: {
   messages: ChatMessage[]
   emptyMessage: string
   pendingMessage: string | null
+  assistantLabel: string
 }) {
   return (
-    <div className='flex flex-col gap-3' aria-live='polite'>
+    <div className='flex flex-col gap-4' aria-live='polite'>
       {messages.length > 0 ? (
         messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+          <div
+            key={`${message.role}-${index}`}
+            className={cn('flex flex-col gap-1', message.role === 'user' ? 'items-end' : 'items-start')}
+          >
+            <span className='text-xs font-medium text-muted-foreground'>
+              {message.role === 'user' ? 'You' : assistantLabel}
+            </span>
             <div
               className={cn(
-                'max-w-[92%] whitespace-pre-wrap break-words rounded-md px-3 py-2 text-sm leading-6',
-                message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-foreground',
+                'max-w-[92%] whitespace-pre-wrap break-words rounded-lg px-3.5 py-2.5 text-sm leading-6',
+                message.role === 'user' ? 'bg-primary/12 text-foreground' : 'bg-muted/55 text-foreground',
               )}
             >
               {message.content}
             </div>
           </div>
         ))
-      ) : (
-        <p className='rounded-md border border-dashed p-4 text-sm leading-6 text-muted-foreground'>{emptyMessage}</p>
-      )}
+      ) : emptyMessage ? <p className='px-1 py-6 text-sm leading-6 text-muted-foreground'>{emptyMessage}</p> : null}
       {pendingMessage ? (
         <div className='flex justify-start' role='status'>
-          <div className='flex max-w-[92%] items-center gap-2 rounded-md bg-muted/60 px-3 py-2 text-sm text-muted-foreground'>
+          <div className='flex max-w-[92%] items-center gap-2 rounded-lg bg-muted/55 px-3.5 py-2.5 text-sm text-muted-foreground'>
             <LoaderCircleIcon className='size-4 animate-spin' aria-hidden='true' />
             {pendingMessage}
           </div>
@@ -328,8 +333,8 @@ export function NodeLearningWorkspace({ courseId, nodeId }: { courseId: string; 
       : null
 
   return (
-    <div className='flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 sm:px-5 lg:overflow-hidden lg:px-6'>
-      <div className='mx-auto flex w-full max-w-5xl shrink-0 items-center justify-between gap-3'>
+    <div className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6 lg:overflow-hidden lg:px-10 lg:py-5'>
+      <div className='mx-auto flex w-full max-w-4xl shrink-0 items-center gap-3'>
         <Link
           href={roadmapHref}
           onClick={handleBackToRoadmap}
@@ -338,11 +343,10 @@ export function NodeLearningWorkspace({ courseId, nodeId }: { courseId: string; 
           <ArrowLeftIcon className='size-4' aria-hidden='true' />
           Back to roadmap
         </Link>
-        <span className='hidden truncate text-xs text-muted-foreground sm:block'>{courseQuery.data.goalDescription.split('.')[0]}</span>
       </div>
 
       {completionConfirmed ? (
-        <div className='mx-auto flex w-full max-w-5xl flex-col gap-3 rounded-md bg-primary/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between' role='status' aria-live='polite'>
+        <div className='mx-auto flex w-full max-w-4xl flex-col gap-3 rounded-lg bg-success/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between' role='status' aria-live='polite'>
           <div>
             <p className='text-sm font-semibold'>Step completed</p>
             <p className='mt-0.5 text-xs leading-5 text-muted-foreground'>You are ready for the next step.</p>
@@ -354,7 +358,7 @@ export function NodeLearningWorkspace({ courseId, nodeId }: { courseId: string; 
       ) : null}
 
       {adaptiveState ? (
-        <div className='mx-auto flex w-full max-w-5xl items-start justify-between gap-3 rounded-md bg-muted/50 px-4 py-3' role={adaptiveState === 'error' ? 'alert' : 'status'} aria-live='polite'>
+        <div className='mx-auto flex w-full max-w-4xl items-start justify-between gap-3 rounded-lg bg-attention/10 px-4 py-3' role={adaptiveState === 'error' ? 'alert' : 'status'} aria-live='polite'>
           <div className='flex items-start gap-3'>
             {adaptiveState === 'pending' ? <LoaderCircleIcon className='mt-0.5 size-4 animate-spin text-primary' aria-hidden='true' /> : null}
             <div>
@@ -371,7 +375,7 @@ export function NodeLearningWorkspace({ courseId, nodeId }: { courseId: string; 
         </div>
       ) : null}
 
-      <div className='mx-auto flex min-h-0 w-full max-w-5xl flex-none overflow-visible rounded-lg border bg-card lg:flex-1 lg:overflow-hidden'>
+      <div className='mx-auto flex min-h-0 w-full max-w-4xl flex-none overflow-visible lg:flex-1 lg:overflow-hidden'>
         <LessonSurface
           selectedNode={selectedNode}
           nodeCount={courseQuery.data.nodes.length}
@@ -385,26 +389,26 @@ export function NodeLearningWorkspace({ courseId, nodeId }: { courseId: string; 
       </div>
 
       <Sheet open={supportMode !== null} onOpenChange={(open) => !open && setSupportMode(null)}>
-        <SheetContent side='right' className='w-full p-0 sm:max-w-md md:max-w-[30rem]'>
-          <SheetHeader className='shrink-0 border-b px-5 py-4 pr-12'>
-            <SheetTitle>{supportMode === 'validation' ? 'Check your understanding' : 'Tutor'}</SheetTitle>
+        <SheetContent side='right' className='w-full overscroll-contain p-0 sm:max-w-lg'>
+          <SheetHeader className='shrink-0 border-b border-border/70 px-5 py-5 pr-14 sm:px-6'>
+            <SheetTitle className='text-lg font-semibold tracking-tight'>{supportMode === 'validation' ? 'Check your understanding' : 'Tutor'}</SheetTitle>
             <SheetDescription>{supportMode === 'validation' ? 'Explain the idea in your own words when you are ready to continue.' : 'Help me understand this step.'}</SheetDescription>
           </SheetHeader>
           <Tabs value={supportMode ?? 'tutor'} onValueChange={(value) => setSupportMode(value as 'tutor' | 'validation')} className='flex min-h-0 flex-1 flex-col gap-0'>
-            <TabsList className='m-4 mb-0 grid w-[calc(100%-2rem)] grid-cols-2'>
+            <TabsList variant='line' className='mx-5 mt-3 w-fit gap-3 sm:mx-6'>
               <TabsTrigger value='tutor'>Tutor</TabsTrigger>
               <TabsTrigger value='validation'>Validation</TabsTrigger>
             </TabsList>
 
             {adaptiveState ? (
-              <div className='mx-4 mt-3 rounded-md bg-muted/60 p-3' role={adaptiveState === 'error' ? 'alert' : 'status'} aria-live='polite'>
+              <div className='mx-5 mt-3 rounded-md bg-attention/10 p-3 sm:mx-6' role={adaptiveState === 'error' ? 'alert' : 'status'} aria-live='polite'>
                 <p className='text-sm font-medium'>{adaptiveState === 'pending' ? 'Adjusting your learning path…' : "We couldn't adjust the learning path yet."}</p>
               </div>
             ) : null}
 
-            <TabsContent value='tutor' className='flex min-h-0 flex-1 flex-col pt-3'>
+            <TabsContent value='tutor' className='flex min-h-0 flex-1 flex-col pt-4'>
               <ScrollArea className='min-h-0 flex-1'>
-                <div className='px-4 pb-3 pr-6'>
+                <div className='px-5 pb-4 pr-7 sm:px-6 sm:pr-8'>
                   {tutorSessionQuery.isError ? (
                     <p role='alert' className='rounded-md border border-destructive/40 p-3 text-sm leading-6 text-muted-foreground'>Tutor history could not be loaded. Try again shortly.</p>
                   ) : tutorSessionQuery.isPending ? (
@@ -413,55 +417,62 @@ export function NodeLearningWorkspace({ courseId, nodeId }: { courseId: string; 
                       <Skeleton className='h-16 w-full' />
                     </div>
                   ) : (
-                    <MessageThread messages={tutorMessages} emptyMessage={`No Tutor messages yet. Ask a question about ${selectedNode.title}.`} pendingMessage={tutorChat.isPending ? 'Thinking through your question…' : null} />
+                    <MessageThread messages={tutorMessages} emptyMessage={`Ask a question about ${selectedNode.title}.`} pendingMessage={tutorChat.isPending ? 'Thinking through your question…' : null} assistantLabel='Tutor' />
                   )}
                 </div>
               </ScrollArea>
-              <form onSubmit={handleSendTutorMessage} className='mt-auto flex flex-col gap-3 border-t bg-background/60 p-4'>
-                <label htmlFor='tutor-message' className='text-xs font-medium'>Ask the Tutor</label>
-                <textarea id='tutor-message' name='tutor-message' autoComplete='off' value={draftTutorMessage} onChange={(event) => setDraftTutorMessage(event.target.value)} placeholder={`Ask about ${selectedNode.title}…`} disabled={tutorChat.isPending || currentNodeWritesPaused} className='min-h-24 w-full resize-y rounded-md border bg-background px-3 py-2 text-sm leading-6 outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50' />
-                <div className='flex items-center justify-between gap-3 text-xs text-muted-foreground'>
-                  <span className='flex min-w-0 items-center gap-2'><Clock3Icon className='size-3.5 shrink-0' aria-hidden='true' /><span className='truncate'>{selectedNode.estimatedTime} min study block</span></span>
-                  <Button type='submit' disabled={!draftTutorMessage.trim() || tutorChat.isPending || currentNodeWritesPaused}><SendIcon data-icon='inline-start' aria-hidden='true' />Send</Button>
+              <form onSubmit={handleSendTutorMessage} className='mt-auto flex flex-col gap-3 border-t border-border/70 bg-popover p-5 sm:p-6'>
+                <label htmlFor='tutor-message' className='text-sm font-medium'>Your question</label>
+                <textarea id='tutor-message' name='tutor-message' autoComplete='off' value={draftTutorMessage} onChange={(event) => setDraftTutorMessage(event.target.value)} placeholder={`Ask about ${selectedNode.title}…`} disabled={tutorChat.isPending || currentNodeWritesPaused} className='min-h-24 w-full resize-y rounded-lg border bg-muted/25 px-3.5 py-3 text-sm leading-6 outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50' />
+                <div className='flex justify-end'>
+                  <Button type='submit' disabled={!draftTutorMessage.trim() || tutorChat.isPending || currentNodeWritesPaused}><SendIcon data-icon='inline-start' aria-hidden='true' />Send question</Button>
                 </div>
               </form>
             </TabsContent>
 
-            <TabsContent value='validation' className='flex min-h-0 flex-1 flex-col pt-3'>
+            <TabsContent value='validation' className='flex min-h-0 flex-1 flex-col pt-4'>
               <ScrollArea className='min-h-0 flex-1'>
-                <div className='flex flex-col gap-4 px-4 pb-3 pr-6'>
-                  <p className='rounded-md bg-muted/45 p-3 text-sm leading-6 text-muted-foreground'>{getValidationPrompt(selectedNode.title)}</p>
+                <div className='flex flex-col gap-5 px-5 pb-4 pr-7 sm:px-6 sm:pr-8'>
+                  <p className='border-l-2 border-primary/45 pl-4 text-sm leading-6 text-foreground'>{getValidationPrompt(selectedNode.title)}</p>
                   {latestCompetency !== null ? (
-                    <div className='rounded-md border p-3' aria-live='polite'>
+                    <div className={cn('rounded-lg p-4', latestCompetency >= 80 ? 'bg-success/10' : 'bg-attention/10')} aria-live='polite'>
                       <p className='text-sm font-medium'>{latestCompetency >= 80 ? 'Ready to continue' : 'Review this concept once more'}</p>
-                      <p className='mt-1 text-xs text-muted-foreground'>Latest understanding estimate: {Math.round(latestCompetency)} / 100</p>
+                      <p className='mt-1.5 text-xs text-muted-foreground'>Understanding estimate: {Math.round(latestCompetency)} / 100</p>
                     </div>
                   ) : null}
                   {socraticSessionQuery.isError ? (
-                    <p role='alert' className='rounded-md border border-destructive/40 p-3 text-sm leading-6 text-muted-foreground'>Validation history could not be loaded. Try opening this step again.</p>
+                    <p role='alert' className='rounded-md bg-destructive/10 p-3 text-sm leading-6 text-muted-foreground'>Validation history could not be loaded. Try opening this step again.</p>
                   ) : socraticSessionQuery.isPending ? (
                     <Skeleton className='h-16 w-full' />
                   ) : (
-                    <MessageThread messages={validationMessages} emptyMessage='No validation history yet. Your first explanation will start the dialogue.' pendingMessage={validationChat.isPending ? 'Considering your explanation…' : null} />
+                    <MessageThread messages={validationMessages} emptyMessage='' pendingMessage={validationChat.isPending ? 'Considering your explanation…' : null} assistantLabel='Validator' />
                   )}
                 </div>
               </ScrollArea>
 
-              <form onSubmit={handleSendValidationMessage} className='mt-auto flex flex-col gap-3 border-t bg-background/60 p-4'>
-                <label htmlFor='validation-message' className='text-xs font-medium'>Your explanation</label>
-                <textarea id='validation-message' name='validation-message' autoComplete='off' value={draftValidationMessage} onChange={(event) => setDraftValidationMessage(event.target.value)} placeholder={`Explain ${selectedNode.title} in your own words…`} disabled={validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active' || selectedNode.isCompleted} className='min-h-24 w-full resize-y rounded-md border bg-background px-3 py-2 text-sm leading-6 outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50' />
-                {!selectedNode.isCompleted ? (
+              {selectedNode.isCompleted ? (
+                <div className='mt-auto border-t border-border/70 p-5 sm:p-6'>
+                  <p className='text-sm font-medium'>This step is complete.</p>
+                  <p className='mt-1 text-sm leading-6 text-muted-foreground'>Review the lesson or ask the Tutor whenever you need another explanation.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSendValidationMessage} className='mt-auto flex flex-col gap-4 border-t border-border/70 bg-popover p-5 sm:p-6'>
+                  <label htmlFor='validation-message' className='text-sm font-medium'>Your explanation</label>
+                  <textarea id='validation-message' name='validation-message' autoComplete='off' value={draftValidationMessage} onChange={(event) => setDraftValidationMessage(event.target.value)} placeholder={`Explain ${selectedNode.title} in your own words…`} disabled={validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active'} className='min-h-28 w-full resize-y rounded-lg border bg-muted/25 px-3.5 py-3 text-sm leading-6 outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50' />
                   <FieldGroup className='gap-3'>
                     <Field>
-                      <div className='flex items-center justify-between gap-3'><FieldLabel htmlFor='mental-effort'>How mentally demanding did this step feel?</FieldLabel><Badge variant='outline'>{mentalEffort} / 9</Badge></div>
-                      <Input id='mental-effort' name='mental-effort' type='range' min={1} max={9} step={1} value={mentalEffort} onChange={(event) => setMentalEffort(Number(event.target.value))} disabled={validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active'} aria-valuetext={`${mentalEffort} out of 9`} />
-                      <FieldDescription className='flex justify-between gap-3'><span>1 — Very low</span><span>9 — Very high</span></FieldDescription>
+                      <div className='flex items-center justify-between gap-3'>
+                        <FieldLabel htmlFor='mental-effort'>Mental effort</FieldLabel>
+                        <span className='font-mono text-xs tabular-nums text-muted-foreground'>{mentalEffort} / 9</span>
+                      </div>
+                      <FieldDescription>How mentally demanding did this step feel?</FieldDescription>
+                      <Input id='mental-effort' name='mental-effort' type='range' min={1} max={9} step={1} value={mentalEffort} onChange={(event) => setMentalEffort(Number(event.target.value))} disabled={validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active'} aria-valuetext={`${mentalEffort} out of 9`} className='h-5 cursor-pointer appearance-auto border-0 bg-transparent px-0 py-0 accent-primary shadow-none' />
+                      <FieldDescription className='flex justify-between gap-3'><span>Low</span><span>High</span></FieldDescription>
                     </Field>
                   </FieldGroup>
-                ) : null}
-                <p className='text-xs leading-5 text-muted-foreground'>{selectedNode.isCompleted ? 'This step is mastered. Review the lesson or ask the Tutor any time.' : 'An understanding estimate of 80 or above completes this step.'}</p>
-                <Button type='submit' disabled={!draftValidationMessage.trim() || validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active' || selectedNode.isCompleted}><CircleCheckBigIcon data-icon='inline-start' aria-hidden='true' />Validate understanding</Button>
-              </form>
+                  <Button type='submit' size='lg' disabled={!draftValidationMessage.trim() || validationChat.isPending || recalibration.isPending || Boolean(recalibrationError) || roadmapStatus !== 'active'}><CircleCheckBigIcon data-icon='inline-start' aria-hidden='true' />Validate understanding</Button>
+                </form>
+              )}
             </TabsContent>
           </Tabs>
         </SheetContent>

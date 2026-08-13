@@ -246,7 +246,8 @@ Roadmaps should feel directional and connected.
 
 Prefer:
 
-- connected nodes;
+- milestone-like waypoints rather than cards on a line;
+- a subtle flowing connector on desktop and a simple vertical connector on mobile;
 - clear sequence;
 - visible progress;
 - restrained staggered placement;
